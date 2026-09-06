@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using EmployeeManagementSystem.Data;
 
 namespace EmployeeManagementSystem.Forms
 {
@@ -35,6 +36,14 @@ namespace EmployeeManagementSystem.Forms
         /// <summary>Reports a failure. The full exception goes to the debug trace, not to the user.</summary>
         public static void Error(Exception ex)
         {
+            // A rule the user broke is not a crash. These carry a sentence written
+            // for the person at the keyboard, so show that and nothing else.
+            if (ex is DuplicateKeyException || ex is DataRuleViolationException)
+            {
+                Warn(ex.Message);
+                return;
+            }
+
             System.Diagnostics.Debug.WriteLine(ex);
             MessageBox.Show(ex.Message, "Error Message", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }

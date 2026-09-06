@@ -73,6 +73,7 @@
     <Compile Include="Data\IEmployeeRepository.cs" />
     <Compile Include="Data\IUserRepository.cs" />
     <Compile Include="Data\OracleConnectionFactory.cs" />
+    <Compile Include="Data\OracleErrors.cs" />
     <Compile Include="Data\OracleParams.cs" />
     <Compile Include="Data\SqlCatalog.cs" />
     <Compile Include="Data\UserRepository.cs" />

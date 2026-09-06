@@ -72,12 +72,6 @@ namespace EmployeeManagementSystem.Tests
             Assert.True(_users.UsernameExists(username));
         }
 
-        /// <summary>
-        /// Unlike employees, users DO have a unique constraint, so a duplicate
-        /// registration is rejected by the database rather than only by the
-        /// application's check-then-insert. This is the behaviour employees should
-        /// get in migration V2 (finding F4).
-        /// </summary>
         [SkippableFact]
         public void Duplicate_username_is_rejected_by_the_database()
         {
@@ -86,10 +80,11 @@ namespace EmployeeManagementSystem.Tests
             string username = _prefix + "-d";
             _users.Register(username, "pw");
 
-            Exception ex = Record.Exception(() => _users.Register(username, "pw2"));
+            var ex = Assert.Throws<DuplicateKeyException>(() => _users.Register(username, "pw2"));
 
-            Assert.NotNull(ex);
-            Assert.Contains("ORA-00001", ex.Message);   // unique constraint violated
+            // The user sees the username, not the name of an index.
+            Assert.Contains(username, ex.Message);
+            Assert.DoesNotContain("ORA-", ex.Message);
         }
 
         /// <summary>

@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using System.Linq;
 using Dapper;
+using Oracle.ManagedDataAccess.Client;
 using EmployeeManagementSystem.Models;
 
 namespace EmployeeManagementSystem.Data
@@ -48,14 +49,23 @@ namespace EmployeeManagementSystem.Data
 
         public void Register(string username, string password)
         {
-            using (IDbConnection connection = _connections.Create())
+            // users.username has had a unique constraint since V1, so a duplicate
+            // can arrive here despite the caller checking first.
+            try
             {
-                connection.Execute(
-                    _sql.Get("User.Insert"),
-                    OracleParams.New()
-                        .Set("username", username)
-                        .Set("password", password)
-                        .Set("dateRegister", DateTime.Today));
+                using (IDbConnection connection = _connections.Create())
+                {
+                    connection.Execute(
+                        _sql.Get("User.Insert"),
+                        OracleParams.New()
+                            .Set("username", username)
+                            .Set("password", password)
+                            .Set("dateRegister", DateTime.Today));
+                }
+            }
+            catch (OracleException ex)
+            {
+                throw OracleErrors.Translate(ex, "The username '" + username + "'") ?? (Exception)ex;
             }
         }
     }

@@ -124,12 +124,51 @@ Integration tests connect to `localhost:1521/FREEPDB1` by default. Point them el
 with the `EMS_TEST_CONNECTION` environment variable. **When no database is reachable they
 skip rather than fail**, with a message telling you to run `db\setup-db.ps1`.
 
-Two tests are named `KNOWN_GAP_*`. They assert current *wrong* behaviour on purpose —
-clear-text passwords (F1) and duplicate `employee_id` (F4) — so that fixing those
-findings makes them fail and forces the test to be rewritten. They are documentation
-that fails loudly when it goes stale.
+One test is named `KNOWN_GAP_password_is_stored_in_clear_text`. It asserts current
+*wrong* behaviour on purpose, so that fixing the finding makes it fail and forces the
+test to be rewritten — documentation that fails loudly when it goes stale. There used to
+be a second one for duplicate `employee_id`; migration V2 closed that gap, and the test
+is now `Duplicate_active_employee_id_is_rejected_by_the_database`.
 
-## Useful container commands
+## 5. What the database enforces
+
+The schema, not just the UI, now rejects bad data:
+
+| Rule                                        | Enforced by                      | Migration |
+|---------------------------------------------|----------------------------------|-----------|
+| `username` is unique                        | `UQ_USERS_USERNAME`              | V1        |
+| an **active** `employee_id` is unique       | `UQ_EMPLOYEES_ACTIVE_ID`         | V2        |
+| `status` is `Active` or `Inactive`          | `CK_EMPLOYEES_STATUS`            | V3        |
+| `salary >= 0`                               | `CK_EMPLOYEES_SALARY`            | V3        |
+
+The uniqueness index is function-based:
+
+```sql
+CREATE UNIQUE INDEX uq_employees_active_id
+  ON employees (CASE WHEN delete_date IS NULL THEN employee_id END);
+```
+
+Oracle does not index rows where the expression is NULL, so soft-deleted rows are
+outside the constraint. That keeps two behaviours the application depends on: an
+`employee_id` can be reused after a delete, and the deleted history may hold the same id
+more than once.
+
+`Data/OracleErrors.cs` turns the resulting Oracle codes into sentences a user can act
+on, so nobody sees `ORA-00001: unique constraint (EMS.UQ_EMPLOYEES_ACTIVE_ID) violated`:
+
+| Oracle code | Becomes                    | Shown as   |
+|-------------|----------------------------|------------|
+| `ORA-00001` | `DuplicateKeyException`    | a warning  |
+| `ORA-02290` | `DataRuleViolationException` | a warning |
+| `ORA-12899` | `DataRuleViolationException` | a warning |
+
+Anything else keeps its own message and is reported as an error.
+
+The repositories still pre-check with `ExistsByEmployeeId` / `UsernameExists`, because
+that gives a better message before any work is done. The database constraint is what
+closes the race when two people add the same id at the same moment.
+
+## 6. Useful container commands
 
 ```powershell
 docker compose -f db\docker-compose.yml logs -f      # watch startup

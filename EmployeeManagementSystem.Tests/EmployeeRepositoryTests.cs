@@ -246,31 +246,102 @@ namespace EmployeeManagementSystem.Tests
             Assert.False(_employees.ExistsByEmployeeId(_prefix + "-NOBODY"));
         }
 
-        // --------------------------------------------------------- known gaps
+        // ------------------------------------------------- integrity (V2, V3)
 
         /// <summary>
-        /// Documents finding F4: the schema has only a NONUNIQUE index on
-        /// employee_id, so nothing stops two rows sharing an id. The application
-        /// guards it with a check-then-insert, which races.
-        ///
-        /// When the unique index lands (migration V2), this test should start
-        /// failing - at which point invert it to assert the insert is rejected.
+        /// Finding F4, now enforced by the unique index in migration V2. The
+        /// application's check-then-insert races; this is the guard that does not.
         /// </summary>
         [SkippableFact]
-        public void KNOWN_GAP_duplicate_employee_id_is_still_accepted()
+        public void Duplicate_active_employee_id_is_rejected_by_the_database()
         {
             _oracle.SkipIfUnavailable();
 
             Employee first = NewEmployee();
-            Employee second = NewEmployee();
-            second.FullName = "Duplicate";
-
             _employees.Add(first);
-            _employees.Add(second);
 
-            int duplicates = _employees.GetAll().Count(e => e.EmployeeId == first.EmployeeId);
+            Employee duplicate = NewEmployee();
+            duplicate.FullName = "Duplicate";
 
-            Assert.Equal(2, duplicates);
+            var ex = Assert.Throws<DuplicateKeyException>(() => _employees.Add(duplicate));
+
+            Assert.Contains(first.EmployeeId, ex.Message);
+            Assert.Single(_employees.GetAll(), e => e.EmployeeId == first.EmployeeId);
+        }
+
+        /// <summary>
+        /// The unique index is function-based on
+        /// "CASE WHEN delete_date IS NULL THEN employee_id END", so it must constrain
+        /// only active rows. Reusing the id of a soft-deleted employee has to keep
+        /// working, or V2 would have broken the delete-then-re-add workflow.
+        /// </summary>
+        [SkippableFact]
+        public void An_employee_id_can_be_reused_after_a_soft_delete()
+        {
+            _oracle.SkipIfUnavailable();
+
+            Employee original = NewEmployee();
+            _employees.Add(original);
+            _employees.SoftDelete(original.EmployeeId);
+
+            Employee reused = NewEmployee();
+            reused.FullName = "Second Person, Same Id";
+
+            _employees.Add(reused);   // must not throw
+
+            Employee active = Reload(original.EmployeeId);
+            Assert.NotNull(active);
+            Assert.Equal("Second Person, Same Id", active.FullName);
+        }
+
+        [SkippableFact]
+        public void A_status_outside_the_allowed_values_is_rejected()
+        {
+            _oracle.SkipIfUnavailable();
+
+            Employee bad = NewEmployee();
+            bad.Status = "not-a-real-status";
+
+            Assert.Throws<DataRuleViolationException>(() => _employees.Add(bad));
+        }
+
+        [SkippableFact]
+        public void A_negative_salary_is_rejected_on_insert()
+        {
+            _oracle.SkipIfUnavailable();
+
+            Employee bad = NewEmployee();
+            bad.Salary = -5000;
+
+            Assert.Throws<DataRuleViolationException>(() => _employees.Add(bad));
+        }
+
+        [SkippableFact]
+        public void A_negative_salary_is_rejected_on_update()
+        {
+            _oracle.SkipIfUnavailable();
+
+            Employee added = NewEmployee();
+            _employees.Add(added);
+
+            Assert.Throws<DataRuleViolationException>(
+                () => _employees.UpdateSalary(added.EmployeeId, -1));
+
+            Assert.Equal(added.Salary, Reload(added.EmployeeId).Salary);
+        }
+
+        [SkippableFact]
+        public void An_employee_id_longer_than_the_column_is_rejected_with_a_readable_message()
+        {
+            _oracle.SkipIfUnavailable();
+
+            Employee tooLong = NewEmployee();
+            tooLong.EmployeeId = new string('X', 60);   // employee_id is VARCHAR2(50)
+
+            var ex = Assert.Throws<DataRuleViolationException>(() => _employees.Add(tooLong));
+
+            Assert.Contains("too long", ex.Message);
+            Assert.DoesNotContain("ORA-", ex.Message);
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using Dapper;
+using Oracle.ManagedDataAccess.Client;
 using EmployeeManagementSystem.Models;
 
 namespace EmployeeManagementSystem.Data
@@ -75,20 +76,30 @@ namespace EmployeeManagementSystem.Data
         {
             if (employee == null) throw new ArgumentNullException("employee");
 
-            using (IDbConnection connection = _connections.Create())
+            // The database enforces uniqueness (migration V2), so a duplicate can
+            // still arrive here even though the caller checked first - two users
+            // adding the same id at the same time both pass that check.
+            try
             {
-                connection.Execute(
-                    _sql.Get("Employee.Insert"),
-                    OracleParams.New()
-                        .Set("employeeId", employee.EmployeeId)
-                        .Set("fullName", employee.FullName)
-                        .Set("gender", employee.Gender)
-                        .Set("contactNumber", employee.ContactNumber)
-                        .Set("position", employee.Position)
-                        .Set("image", employee.Image)
-                        .Set("salary", employee.Salary)
-                        .Set("insertDate", DateTime.Today)
-                        .Set("status", employee.Status));
+                using (IDbConnection connection = _connections.Create())
+                {
+                    connection.Execute(
+                        _sql.Get("Employee.Insert"),
+                        OracleParams.New()
+                            .Set("employeeId", employee.EmployeeId)
+                            .Set("fullName", employee.FullName)
+                            .Set("gender", employee.Gender)
+                            .Set("contactNumber", employee.ContactNumber)
+                            .Set("position", employee.Position)
+                            .Set("image", employee.Image)
+                            .Set("salary", employee.Salary)
+                            .Set("insertDate", DateTime.Today)
+                            .Set("status", employee.Status));
+                }
+            }
+            catch (OracleException ex)
+            {
+                throw Translate(ex, "Employee ID '" + employee.EmployeeId + "'");
             }
         }
 
@@ -96,31 +107,45 @@ namespace EmployeeManagementSystem.Data
         {
             if (employee == null) throw new ArgumentNullException("employee");
 
-            using (IDbConnection connection = _connections.Create())
+            try
             {
-                return connection.Execute(
-                    _sql.Get("Employee.Update"),
-                    OracleParams.New()
-                        .Set("fullName", employee.FullName)
-                        .Set("gender", employee.Gender)
-                        .Set("contactNumber", employee.ContactNumber)
-                        .Set("position", employee.Position)
-                        .Set("status", employee.Status)
-                        .Set("updateDate", DateTime.Today)
-                        .Set("employeeId", employee.EmployeeId));
+                using (IDbConnection connection = _connections.Create())
+                {
+                    return connection.Execute(
+                        _sql.Get("Employee.Update"),
+                        OracleParams.New()
+                            .Set("fullName", employee.FullName)
+                            .Set("gender", employee.Gender)
+                            .Set("contactNumber", employee.ContactNumber)
+                            .Set("position", employee.Position)
+                            .Set("status", employee.Status)
+                            .Set("updateDate", DateTime.Today)
+                            .Set("employeeId", employee.EmployeeId));
+                }
+            }
+            catch (OracleException ex)
+            {
+                throw Translate(ex, "Employee ID '" + employee.EmployeeId + "'");
             }
         }
 
         public int UpdateSalary(string employeeId, int salary)
         {
-            using (IDbConnection connection = _connections.Create())
+            try
             {
-                return connection.Execute(
-                    _sql.Get("Employee.UpdateSalary"),
-                    OracleParams.New()
-                        .Set("salary", salary)
-                        .Set("updateDate", DateTime.Today)
-                        .Set("employeeId", employeeId));
+                using (IDbConnection connection = _connections.Create())
+                {
+                    return connection.Execute(
+                        _sql.Get("Employee.UpdateSalary"),
+                        OracleParams.New()
+                            .Set("salary", salary)
+                            .Set("updateDate", DateTime.Today)
+                            .Set("employeeId", employeeId));
+                }
+            }
+            catch (OracleException ex)
+            {
+                throw Translate(ex, "The salary for employee '" + employeeId + "'");
             }
         }
 
@@ -134,6 +159,15 @@ namespace EmployeeManagementSystem.Data
                         .Set("deleteDate", DateTime.Today)
                         .Set("employeeId", employeeId));
             }
+        }
+
+        /// <summary>
+        /// Rewrites an Oracle error into something a user can act on, or returns the
+        /// original so an unexpected failure keeps its own message.
+        /// </summary>
+        private static Exception Translate(OracleException ex, string subject)
+        {
+            return OracleErrors.Translate(ex, subject) ?? (Exception)ex;
         }
     }
 }
