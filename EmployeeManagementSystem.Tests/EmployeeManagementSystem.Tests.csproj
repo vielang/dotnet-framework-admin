@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>EmployeeManagementSystem.Tests</AssemblyName>
+    <RootNamespace>EmployeeManagementSystem.Tests</RootNamespace>
+    <!-- The application under test is WinExe; hosting its forms needs a real
+         message loop, so the test host must not be a console-only process. -->
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EmployeeManagementSystem\EmployeeManagementSystem.csproj" />
+  </ItemGroup>
+
+  <!-- Test against the SQL files the application actually ships, not a copy. -->
+  <ItemGroup>
+    <Content Include="..\EmployeeManagementSystem\Sql\*.xml" Link="Sql\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

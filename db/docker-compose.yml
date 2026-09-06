@@ -5,9 +5,9 @@ services:
     ports:
       - "1521:1521"
     environment:
-      ORACLE_PASSWORD: Oracle_Sys2026      # password for SYS / SYSTEM
-      APP_USER: ems                        # application schema owner
-      APP_USER_PASSWORD: Ems_Pass2026
+      ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:-Oracle_Sys2026}   # SYS / SYSTEM
+      APP_USER: ${EMS_DB_USER:-ems}                             # application schema owner
+      APP_USER_PASSWORD: ${EMS_DB_PASSWORD:-Ems_Pass2026}
     volumes:
       - ems-oracle-data:/opt/oracle/oradata
     healthcheck:
@@ -16,6 +16,30 @@ services:
       timeout: 10s
       retries: 30
       start_period: 30s
+
+  # Schema migrations. Not started by "docker compose up" - it sits behind a
+  # profile and is invoked explicitly:
+  #     docker compose --profile migrate run --rm flyway info
+  #     docker compose --profile migrate run --rm flyway migrate
+  # db\setup-db.ps1 wraps this.
+  flyway:
+    image: redgate/flyway:11-alpine
+    profiles: ["migrate"]
+    depends_on:
+      oracle:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/flyway/sql:ro
+    environment:
+      FLYWAY_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      FLYWAY_USER: ${EMS_DB_USER:-ems}
+      FLYWAY_PASSWORD: ${EMS_DB_PASSWORD:-Ems_Pass2026}
+      FLYWAY_CONNECT_RETRIES: "30"
+      FLYWAY_BASELINE_ON_MIGRATE: "false"
+      # "clean" wipes the schema. Left enabled because this compose file
+      # describes a local development database only - never point it at a
+      # shared or production instance.
+      FLYWAY_CLEAN_DISABLED: "false"
 
 volumes:
   ems-oracle-data:

@@ -34,21 +34,40 @@ running in Docker, using the fully managed ODP.NET driver
 ## 1. Start the database
 
 ```powershell
+# first time: create the schema and load sample data
+powershell -ExecutionPolicy Bypass -File db\setup-db.ps1 -Seed
+
+# every time after that
 powershell -ExecutionPolicy Bypass -File db\setup-db.ps1
 ```
 
-That script does three things:
+The script starts the `ems-oracle` container, waits for it to report healthy (the
+first start takes a few minutes), then runs **Flyway** to bring the schema up to date.
 
-1. `docker compose -f db/docker-compose.yml up -d` — starts the `ems-oracle` container
-2. waits until the container reports `healthy` (the very first start takes a few minutes)
-3. applies `db/schema.sql` to the `ems` schema (tables + seed data)
+It is safe to re-run: Flyway applies only migrations that have not been applied yet
+and records each one in `flyway_schema_history`. Running it twice prints
+`Schema "EMS" is up to date` and leaves your data alone.
 
-To do it by hand instead:
+| Switch      | Effect                                                                   |
+|-------------|--------------------------------------------------------------------------|
+| *(none)*    | Applies pending migrations. Non-destructive.                              |
+| `-Seed`     | **Deletes all rows** and loads `db/seed/dev-seed.sql`. Local use only.    |
+| `-Recreate` | **Drops every object** (`flyway clean`) and migrates from scratch.        |
+
+### Changing the schema
+
+Migrations are append-only. **Never edit an applied migration** — Flyway records its
+checksum and will refuse to run again. Add a new file instead:
+
+```
+db/migrations/
+├─ V1__initial_schema.sql        already applied - do not touch
+└─ V2__your_change.sql           add this
+```
 
 ```powershell
-docker compose -f db\docker-compose.yml up -d
-docker cp db\schema.sql ems-oracle:/tmp/schema.sql
-docker exec ems-oracle sqlplus -s ems/Ems_Pass2026@localhost:1521/FREEPDB1 @/tmp/schema.sql
+docker compose -f db\docker-compose.yml --profile migrate run --rm flyway info
+docker compose -f db\docker-compose.yml --profile migrate run --rm flyway migrate
 ```
 
 ## 2. Connection details
@@ -80,6 +99,35 @@ msbuild EmployeeManagementSystem.sln -p:Configuration=Debug
 ```
 
 Seeded login: **admin / admin**.
+
+## 4. Tests
+
+```powershell
+msbuild EmployeeManagementSystem.sln -t:restore
+msbuild EmployeeManagementSystem.sln -p:Configuration=Debug
+vstest.console.exe EmployeeManagementSystem.Tests\bin\Debug\net472\EmployeeManagementSystem.Tests.dll
+```
+
+`dotnet test` does **not** work here: the application project is a legacy-format
+`.csproj` and the dotnet CLI only builds SDK-style projects. Build with MSBuild and run
+with `vstest.console.exe` (or just use the Test Explorer in Visual Studio).
+
+The suite has three kinds of test:
+
+| Kind                 | Needs a database | What it protects                                              |
+|----------------------|------------------|---------------------------------------------------------------|
+| `SqlCatalogTests`    | no               | XML parsing, and that every statement key a repository asks for exists |
+| `DesignerSafetyTests`| no               | that opening a form in the VS designer touches nothing         |
+| `*RepositoryTests`   | **yes**          | real CRUD, name-based parameter binding, soft delete           |
+
+Integration tests connect to `localhost:1521/FREEPDB1` by default. Point them elsewhere
+with the `EMS_TEST_CONNECTION` environment variable. **When no database is reachable they
+skip rather than fail**, with a message telling you to run `db\setup-db.ps1`.
+
+Two tests are named `KNOWN_GAP_*`. They assert current *wrong* behaviour on purpose —
+clear-text passwords (F1) and duplicate `employee_id` (F4) — so that fixing those
+findings makes them fail and forces the test to be rewritten. They are documentation
+that fails loudly when it goes stale.
 
 ## Useful container commands
 
