@@ -136,11 +136,13 @@ Integration tests connect to `localhost:1521/FREEPDB1` by default. Point them el
 with the `EMS_TEST_CONNECTION` environment variable. **When no database is reachable they
 skip rather than fail**, with a message telling you to run `db\setup-db.ps1`.
 
-One test is named `KNOWN_GAP_password_is_stored_in_clear_text`. It asserts current
-*wrong* behaviour on purpose, so that fixing the finding makes it fail and forces the
-test to be rewritten — documentation that fails loudly when it goes stale. There used to
-be a second one for duplicate `employee_id`; migration V2 closed that gap, and the test
-is now `Duplicate_active_employee_id_is_rejected_by_the_database`.
+There used to be two `KNOWN_GAP_*` tests, asserting *wrong* behaviour on purpose so that
+fixing the finding would make them fail and force a rewrite. Both have now done their job:
+
+| Old test | Closed by | Replaced with |
+|----------|-----------|---------------|
+| `KNOWN_GAP_duplicate_employee_id_is_still_accepted` | V2 | `Duplicate_active_employee_id_is_rejected_by_the_database` |
+| `KNOWN_GAP_password_is_stored_in_clear_text` | V4 | `The_password_is_not_stored_anywhere_in_the_row` |
 
 ## 5. What the database enforces
 
@@ -152,6 +154,7 @@ The schema, not just the UI, now rejects bad data:
 | an **active** `employee_id` is unique       | `UQ_EMPLOYEES_ACTIVE_ID`         | V2        |
 | `status` is `Active` or `Inactive`          | `CK_EMPLOYEES_STATUS`            | V3        |
 | `salary >= 0`                               | `CK_EMPLOYEES_SALARY`            | V3        |
+| a credential is complete or absent, never half-written | `CK_USERS_PASSWORD_COMPLETE` | V4 |
 
 The uniqueness index is function-based:
 
@@ -179,6 +182,33 @@ Anything else keeps its own message and is reported as an error.
 The repositories still pre-check with `ExistsByEmployeeId` / `UsernameExists`, because
 that gives a better message before any work is done. The database constraint is what
 closes the race when two people add the same id at the same moment.
+
+## 6. Passwords
+
+Passwords are hashed with **PBKDF2-HMAC-SHA256**, 120 000 iterations, a fresh 128-bit
+random salt per user (`Data/PasswordHasher.cs`). Migration **V4** added the columns and
+dropped the clear-text one.
+
+Three things follow from that, and each is deliberate:
+
+- **No statement in `Sql/UserStatements.xml` takes a password.** The row is fetched by
+  username and verified in memory. A password never travels to the database and never
+  appears in a `WHERE` clause.
+- **A failed login costs the same whether the username exists or not.** When it does not,
+  `PasswordHasher.BurnTime()` spends the same time a real verification would — otherwise
+  the response time reveals which usernames are registered.
+- **The algorithm and iteration count are stored per row.** Raising the cost later, or
+  moving to a different algorithm, does not invalidate existing accounts.
+
+`FindByCredentials` clears the hash from the object before returning it, so the UI never
+holds credential material.
+
+> **Upgrading an existing database:** V4 drops the clear-text column without converting
+> it — a hash cannot be recomputed from inside a migration without duplicating the C#
+> implementation in PL/SQL. **Every pre-existing account is left unable to log in** and
+> must be re-created. On a development database, `db\setup-db.ps1 -Seed` recreates
+> `admin` / `admin` with a proper hash. See the comment at the top of
+> `db/migrations/V4__hash_user_passwords.sql`.
 
 ## 6. Useful container commands
 

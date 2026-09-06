@@ -18,8 +18,8 @@ Nhớ lại [bài 06](06-kien-truc-phan-tang.md): `Data/` không tham chiếu Wi
 flowchart TB
     subgraph T["Test được ngay, không cần UI"]
         direction LR
-        A["SqlCatalog<br/><i>15 test</i>"]
-        B["EmployeeRepository<br/>UserRepository<br/><i>25 test</i>"]
+        A["SqlCatalog · 15<br/>PasswordHasher · 19<br/><i>34 test</i>"]
+        B["EmployeeRepository · 19<br/>UserRepository · 11<br/><i>30 test</i>"]
     end
 
     subgraph D["Test được, cần mẹo"]
@@ -35,7 +35,7 @@ flowchart TB
     style N fill:#f0f0f0,stroke:#b8b8b8
 ```
 
-Dự án có **46 test** trong `EmployeeManagementSystem.Tests/`.
+Dự án có **70 test** trong `EmployeeManagementSystem.Tests/`.
 
 ## Chạy test
 
@@ -145,7 +145,7 @@ flowchart TD
     style F fill:#fff5e8,stroke:#e5bf87
 ```
 
-Kết quả: `21 passed, 20 skipped, 0 failed` khi không có Docker. Bạn vẫn biết chính xác cái
+Kết quả: `40 passed, 30 skipped, 0 failed` khi không có Docker. Bạn vẫn biết chính xác cái
 gì đã chạy và cái gì chưa.
 
 ### Test canh đúng một cạm bẫy
@@ -282,7 +282,10 @@ thành "fail có thông báo rõ".
 
 ## Test làm tài liệu: `KNOWN_GAP_`
 
-Dự án có một test khẳng định hành vi **sai** một cách cố ý:
+Dự án **từng** có hai test khẳng định hành vi **sai** một cách cố ý. Cả hai giờ đã biến
+mất, và đó chính là điều đáng học.
+
+Một trong hai trông như sau:
 
 ```csharp
 /// <summary>
@@ -295,24 +298,40 @@ public void KNOWN_GAP_password_is_stored_in_clear_text()
     _users.Register(username, "PlainTextPassword");
     User found = _users.FindByCredentials(username, "PlainTextPassword");
 
-    Assert.Equal("PlainTextPassword", found.Password);
+    Assert.Equal("PlainTextPassword", found.Password);   // khẳng định điều SAI
 }
 ```
 
 Nghe ngược đời, nhưng có mục đích: **khi ai đó sửa lỗi, test này đỏ** và buộc họ đọc phần
-mô tả. Đây là tài liệu tự báo động khi hết hạn — khác hẳn comment, thứ có thể sai âm thầm
-nhiều năm.
+mô tả rồi viết lại. Đây là tài liệu tự báo động khi hết hạn — khác hẳn comment, thứ có thể
+sai âm thầm nhiều năm.
 
-Trước đây có hai test như vậy. Cái thứ hai về trùng mã nhân viên đã bị xoá khi migration V2
-thêm ràng buộc duy nhất — đúng như thiết kế.
+Cả hai đều đã hoàn thành nhiệm vụ:
+
+| Test cũ | Bị thay khi | Test mới |
+|---------|-------------|----------|
+| `KNOWN_GAP_duplicate_employee_id_is_still_accepted` | V2 thêm unique index | `Duplicate_active_employee_id_is_rejected_by_the_database` |
+| `KNOWN_GAP_password_is_stored_in_clear_text` | V4 băm mật khẩu | `The_password_is_not_stored_anywhere_in_the_row` |
+
+Test thay thế cho mật khẩu đọc thẳng dòng dữ liệu thô, không qua repository — vì câu hỏi
+cần trả lời là "**trong database** có gì", chứ không phải "API trả về gì":
+
+```csharp
+dynamic row = ReadStoredRow(username);          // SELECT thang tu bang
+
+Assert.Equal("PBKDF2-SHA256", (string)row.PASSWORD_ALGORITHM);
+Assert.True(Convert.ToInt32(row.PASSWORD_ITERATIONS) >= 100000);
+Assert.DoesNotContain(password, (string)row.PASSWORD_HASH);
+Assert.DoesNotContain(password, (string)row.PASSWORD_SALT);
+```
 
 ## Kim tự tháp test của dự án
 
 ```mermaid
 flowchart TB
     A["<b>6</b> · Designer-safety<br/><i>chậm, cần STA + message loop</i>"]
-    B["<b>25</b> · Integration<br/><i>cần Oracle, bỏ qua nếu không có</i>"]
-    C["<b>15</b> · Unit<br/><i>nhanh, luôn chạy được</i>"]
+    B["<b>30</b> · Integration<br/><i>cần Oracle, bỏ qua nếu không có</i>"]
+    C["<b>34</b> · Unit<br/><i>nhanh, luôn chạy được</i>"]
 
     A --- B --- C
 

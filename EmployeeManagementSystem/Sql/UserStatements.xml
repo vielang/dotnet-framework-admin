@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   SQL for the USERS table (login and registration).
-  Reachable from C# as "User.<id>", e.g. Sql.Get("User.FindByCredentials").
+  Reachable from C# as "User.<id>", e.g. Sql.Get("User.FindByUsername").
+
+  Note what is NOT here: there is no statement that takes a password. Passwords
+  are never sent to the database and never appear in a WHERE clause. The row is
+  fetched by username and verified in C# - see Data/PasswordHasher.cs.
 -->
 <statements namespace="User">
 
-  <statement id="FindByCredentials">
+  <statement id="FindByUsername">
     SELECT id,
            username,
-           password,
-           date_register
+           date_register,
+           password_algorithm,
+           password_hash,
+           password_salt,
+           password_iterations
     FROM   users
     WHERE  username = :username
-    AND    password = :password
   </statement>
 
   <statement id="CountByUsername">
@@ -22,8 +28,18 @@
   </statement>
 
   <statement id="Insert">
-    INSERT INTO users (username, password, date_register)
-    VALUES (:username, :password, :dateRegister)
+    INSERT INTO users (username,
+                       date_register,
+                       password_algorithm,
+                       password_hash,
+                       password_salt,
+                       password_iterations)
+    VALUES (:username,
+            :dateRegister,
+            :passwordAlgorithm,
+            :passwordHash,
+            :passwordSalt,
+            :passwordIterations)
   </statement>
 
 </statements>

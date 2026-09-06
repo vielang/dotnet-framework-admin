@@ -75,6 +75,7 @@
     <Compile Include="Data\OracleConnectionFactory.cs" />
     <Compile Include="Data\OracleErrors.cs" />
     <Compile Include="Data\OracleParams.cs" />
+    <Compile Include="Data\PasswordHasher.cs" />
     <Compile Include="Data\SqlCatalog.cs" />
     <Compile Include="Data\UserRepository.cs" />
   </ItemGroup>

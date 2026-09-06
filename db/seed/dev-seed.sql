@@ -2,9 +2,13 @@
 -- Development seed data. NOT a migration - never applied to production.
 -- Applied only by db\setup-db.ps1, and only when -Seed is passed.
 --
--- The 'admin' password is stored in clear text because the application
--- still compares passwords in clear text (finding F1). Once hashing
--- lands, this file has to produce a hash instead.
+-- The admin password is 'admin', stored as a PBKDF2-HMAC-SHA256 hash. The
+-- values below were produced by Data/PasswordHasher.cs; they are not
+-- computed here because a second implementation in PL/SQL would be one
+-- more thing to keep in step with the C# one.
+--
+-- To change the seeded password, hash the new one with PasswordHasher.Create
+-- and replace all four values. Do not hand-edit the hash.
 -- =====================================================================
 
 SET DEFINE OFF
@@ -13,8 +17,13 @@ WHENEVER SQLERROR EXIT SQL.SQLCODE
 DELETE FROM employees;
 DELETE FROM users;
 
-INSERT INTO users (username, password, date_register)
-VALUES ('admin', 'admin', TRUNC(SYSDATE));
+INSERT INTO users (username, date_register,
+                   password_algorithm, password_hash, password_salt, password_iterations)
+VALUES ('admin', TRUNC(SYSDATE),
+        'PBKDF2-SHA256',
+        'mlOYMBegwFiTrJtYwdXfvXCsoj6NO0/e2wEMdenDu8U=',
+        'iPAtEAXdxIXTjBCJVp7peA==',
+        120000);
 
 INSERT INTO employees (employee_id, full_name, gender, contact_number, position, image, salary, insert_date, status)
 VALUES ('EMID-01', 'Nguyen Van A', 'Male', '0900000001', 'Developer', 'Directory\EMID-01.jpg', 1500, TRUNC(SYSDATE), 'Active');

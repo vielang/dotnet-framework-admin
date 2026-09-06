@@ -31,7 +31,7 @@ Hiện không ô nhập nào đặt `MaxLength`. Gõ 60 ký tự vào ô mã nh�
 | `addEmployee_fullName` | `full_name` | 200 |
 | `addEmployee_phoneNumber` | `contact_number` | 50 |
 | `signup_username` / `login_username` | `username` | 100 |
-| `signup_password` / `login_password` | `password` | 200 |
+| `signup_password` / `login_password` | *(không có cột)* | Mật khẩu được băm nên độ dài lưu là cố định. Vẫn nên đặt trần hợp lý, ví dụ 128. |
 
 **Gợi ý:** làm trong designer, hoặc sửa thẳng `.Designer.cs`.
 
@@ -157,7 +157,7 @@ Thêm cột `email VARCHAR2(200)` vào bảng `employees`.
 
 **Bắt buộc:**
 
-1. Tạo `db/migrations/V4__add_employee_email.sql` — **không sửa V1, V2, V3**
+1. Tạo `db/migrations/V5__add_employee_email.sql` — **không sửa V1…V4**
 2. Thêm `Email` vào model `Employee`
 3. Cập nhật `Sql/EmployeeStatements.xml` (`SelectAll`, `SelectByStatus`, `Insert`, `Update`)
 4. Thêm ô nhập vào `EmployeeView`
@@ -166,11 +166,11 @@ Thêm cột `email VARCHAR2(200)` vào bảng `employees`.
 **Kiểm chứng:**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File db\setup-db.ps1     # áp dụng V4
+powershell -ExecutionPolicy Bypass -File db\setup-db.ps1     # áp dụng V5
 powershell -ExecutionPolicy Bypass -File db\setup-db.ps1     # phải là "up to date"
 ```
 
-Chạy lại lần hai **không được** áp dụng lại V4. Nếu có, bạn đã hiểu sai cách Flyway hoạt
+Chạy lại lần hai **không được** áp dụng lại V5. Nếu có, bạn đã hiểu sai cách Flyway hoạt
 động.
 
 ---
@@ -193,43 +193,59 @@ buộc nào. Vậy thay đổi này có đáng không? Không có đáp án đú
 
 ## Mức 4 — Thử thách
 
-### Bài 9 · Băm mật khẩu
+### Bài 9 · Đọc hiểu phần băm mật khẩu (đã làm sẵn)
 
-**Dùng:** tất cả các bài. Đây là hạng mục **F1** trong kế hoạch cải tiến.
+**Dùng:** tất cả các bài. Đây là hạng mục **F1**, và nó **đã được hoàn thành** — nên bài
+này là đọc hiểu, không phải viết mới.
 
-Mật khẩu hiện lưu và so sánh dạng thô. Sửa lại cho đúng.
-
-**Các bước:**
+Trước đây mật khẩu được lưu thô và so sánh ngay trong SQL. Migration **V4** đã đổi điều đó.
+Hãy đọc `Data/PasswordHasher.cs` rồi trả lời:
 
 ```mermaid
 flowchart TD
-    A["V5: thêm password_hash,<br/>password_salt, iterations"] --> B["Lớp PasswordHasher<br/><i>PBKDF2, ≥100k vòng</i>"]
-    B --> C["Register: băm trước khi lưu"]
-    C --> D["FindByCredentials:<br/>truy vấn theo username,<br/>so hash trong C#"]
-    D --> E["Bỏ password khỏi mệnh đề WHERE"]
-    E --> F["Xoá KNOWN_GAP_password_is_stored_in_clear_text"]
-    F --> G["Viết test mới:<br/>giá trị lưu KHÁC mật khẩu"]
+    A["V4: thêm password_algorithm,<br/>password_hash, password_salt,<br/>password_iterations<br/><i>và DROP cột password</i>"]
+    A --> B["PasswordHasher<br/><i>PBKDF2-HMAC-SHA256, 120k vòng</i>"]
+    B --> C["Register: băm với salt ngẫu nhiên"]
+    C --> D["FindByCredentials:<br/>lấy dòng theo username,<br/>so hash trong C#"]
+    D --> E["ForgetCredentials()<br/><i>xoá hash trước khi trả về UI</i>"]
 
-    style G fill:#e6f4ec,stroke:#7fb79a
+    style A fill:#fff5e8,stroke:#e5bf87
+    style E fill:#e6f4ec,stroke:#7fb79a
 ```
 
-**Bắt buộc:**
+**Câu hỏi:**
 
-- `Rfc2898DeriveBytes` với ít nhất 100 000 vòng lặp
-- Mỗi người dùng một salt ngẫu nhiên riêng
-- So sánh bằng hàm thời gian hằng định (chống timing attack)
-- **Mật khẩu không bao giờ xuất hiện trong `WHERE`**
+1. Vì sao `Rfc2898DeriveBytes` trong dự án phải truyền `HashAlgorithmName.SHA256`? Nếu bỏ
+   tham số đó thì chuyện gì xảy ra, và bạn có nhận ra không?
+2. Vì sao `FixedTimeEquals` không dừng sớm khi tìm thấy byte khác nhau?
+3. `PasswordHasher.BurnTime()` làm gì, và tấn công nào nó ngăn?
+4. Vì sao mỗi dòng lưu cả `password_iterations` thay vì dùng chung một hằng số?
+5. Vì sao `password_algorithm` được lưu, dù hiện chỉ có đúng một thuật toán?
 
-**Gợi ý về dữ liệu cũ:** không thể băm ngược mật khẩu đã có. Bạn sẽ làm gì với tài khoản
-`admin` hiện tại? (Không có đáp án duy nhất — hãy chọn và ghi lý do vào comment của
-migration.)
+<details>
+<summary>Đáp án</summary>
 
-**Kiểm chứng:** đăng ký tài khoản mới, đăng nhập lại được. Truy vấn thẳng database và xác
-nhận cột không chứa mật khẩu gốc:
+1. `Rfc2898DeriveBytes` trên .NET Framework **mặc định dùng SHA-1**. Bỏ tham số đó thì code
+   vẫn chạy, vẫn băm, vẫn verify được — chỉ là yếu hơn nhiều. Không có cảnh báo nào.
+2. Thời gian dừng sớm sẽ tiết lộ kẻ tấn công đã đoán đúng bao nhiêu byte đầu, cho phép
+   dò từng byte một thay vì dò cả hash.
+3. Nó tiêu tốn thời gian tương đương một lần verify thật, khi username không tồn tại. Không
+   có nó, đăng nhập sai username trả về sau ~5ms còn sai mật khẩu mất ~340ms — chênh lệch
+   đó cho biết username nào có thật (user enumeration).
+4. Để nâng số vòng lặp về sau mà **không làm hỏng tài khoản cũ**. Mỗi hash tự mang theo
+   chi phí nó được tạo ra.
+5. Cùng lý do: để đổi thuật toán sau này mà vẫn verify được hash cũ. Hàm `Verify` từ chối
+   thuật toán lạ thay vì đoán bừa.
 
-```sql
-SELECT username, password_hash FROM users;
-```
+</details>
+
+**Bài tập thật:** `PasswordHasher` hiện dùng 120 000 vòng, mất khoảng 400 ms. OWASP khuyến
+nghị cao hơn. Hãy nâng lên và đo — rồi giải thích vì sao **không nên** nâng trước khi làm
+xong bài 6 (async).
+
+**Còn một việc chưa làm:** V4 khiến mọi tài khoản có sẵn không đăng nhập được nữa, và vì
+`username` là UNIQUE nên họ cũng không đăng ký lại được. Dự án chưa có màn hình quản trị
+để đặt lại mật khẩu. Hãy thiết kế cách giải quyết.
 
 ---
 
@@ -271,13 +287,17 @@ Toàn bộ danh sách hạng mục còn lại nằm trong kế hoạch cải ti�
 | Mã | Nội dung | Vì sao đáng làm |
 |----|----------|-----------------|
 | F6 | Transaction | Copy ảnh và `INSERT` hiện không nguyên tử |
+| F7 | Kiểm soát tương tranh | Người lưu sau ghi đè người lưu trước, không ai biết |
 | F8 | Log thật (Serilog) | `Debug.WriteLine` biến mất trong bản Release |
+| F11 | `async` cho truy vấn | Chống đơ giao diện — xem bài tập 6 |
 | F17 | Ảnh lưu trong DB | Đường dẫn cục bộ vô nghĩa với máy thứ hai |
-| F18 | Nâng lên .NET 8/9 | Cú pháp gần như y hệt, DI thật, async tốt hơn |
 
-Nếu bạn học WinForms để **bắt đầu dự án mới**, hãy làm F18 sớm. WinForms trên .NET 8/9
-dùng gần như cùng API nhưng có `IConfiguration`, `Microsoft.Extensions.DependencyInjection`,
-và toàn bộ hệ sinh thái .NET hiện đại.
+Tất cả những mục trên đều làm được **trên .NET Framework 4.7.2**, không cần nâng cấp
+runtime. `async`/`await` có từ .NET Framework 4.5, và Serilog cũng hỗ trợ.
+
+> Dự án chủ động **giữ nguyên WinForms trên .NET Framework 4.7.2**. Việc nâng lên .NET 8/9
+> và việc tách một tầng Web API đã được đưa ra khỏi kế hoạch — không phải vì chúng sai, mà
+> vì mục tiêu ở đây là học và làm WinForms.
 
 ---
 

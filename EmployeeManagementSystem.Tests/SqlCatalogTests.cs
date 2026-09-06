@@ -185,7 +185,7 @@ namespace EmployeeManagementSystem.Tests
                 "Employee.Update",
                 "Employee.UpdateSalary",
                 "Employee.SoftDelete",
-                "User.FindByCredentials",
+                "User.FindByUsername",
                 "User.CountByUsername",
                 "User.Insert",
             };

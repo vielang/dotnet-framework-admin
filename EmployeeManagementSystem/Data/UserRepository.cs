@@ -10,6 +10,9 @@ namespace EmployeeManagementSystem.Data
     /// <summary>
     /// Dapper implementation of <see cref="IUserRepository"/>.
     /// Every statement comes from Sql\UserStatements.xml.
+    ///
+    /// Passwords never reach the database. The row is fetched by username and the
+    /// hash is verified here, in <see cref="PasswordHasher"/>.
     /// </summary>
     public sealed class UserRepository : IUserRepository
     {
@@ -27,14 +30,32 @@ namespace EmployeeManagementSystem.Data
 
         public User FindByCredentials(string username, string password)
         {
-            using (IDbConnection connection = _connections.Create())
+            User user = FindByUsername(username);
+
+            if (user == null)
             {
-                return connection.Query<User>(
-                    _sql.Get("User.FindByCredentials"),
-                    OracleParams.New()
-                        .Set("username", username)
-                        .Set("password", password)).FirstOrDefault();
+                // Spend the same time as a real verification would, so that an
+                // unknown username cannot be told apart from a wrong password by
+                // how quickly the answer comes back.
+                PasswordHasher.BurnTime();
+                return null;
             }
+
+            bool ok = PasswordHasher.Verify(
+                password,
+                user.PasswordAlgorithm,
+                user.PasswordHash,
+                user.PasswordSalt,
+                user.PasswordIterations);
+
+            if (!ok)
+            {
+                return null;
+            }
+
+            // The caller is the UI. It has no business holding the hash.
+            user.ForgetCredentials();
+            return user;
         }
 
         public bool UsernameExists(string username)
@@ -49,6 +70,13 @@ namespace EmployeeManagementSystem.Data
 
         public void Register(string username, string password)
         {
+            if (string.IsNullOrEmpty(password))
+            {
+                throw new ArgumentException("A password is required.", "password");
+            }
+
+            PasswordHash hash = PasswordHasher.Create(password);
+
             // users.username has had a unique constraint since V1, so a duplicate
             // can arrive here despite the caller checking first.
             try
@@ -59,13 +87,26 @@ namespace EmployeeManagementSystem.Data
                         _sql.Get("User.Insert"),
                         OracleParams.New()
                             .Set("username", username)
-                            .Set("password", password)
-                            .Set("dateRegister", DateTime.Today));
+                            .Set("dateRegister", DateTime.Today)
+                            .Set("passwordAlgorithm", hash.Algorithm)
+                            .Set("passwordHash", hash.Hash)
+                            .Set("passwordSalt", hash.Salt)
+                            .Set("passwordIterations", hash.Iterations));
                 }
             }
             catch (OracleException ex)
             {
                 throw OracleErrors.Translate(ex, "The username '" + username + "'") ?? (Exception)ex;
+            }
+        }
+
+        private User FindByUsername(string username)
+        {
+            using (IDbConnection connection = _connections.Create())
+            {
+                return connection.Query<User>(
+                    _sql.Get("User.FindByUsername"),
+                    OracleParams.New().Set("username", username)).FirstOrDefault();
             }
         }
     }
