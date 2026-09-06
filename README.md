@@ -25,6 +25,18 @@
 
 ---
 
+# 📚 Learning the codebase
+
+New to WinForms, or new to this project? **[docs/](docs/README.md)** teaches WinForms
+.NET Framework by dissecting this codebase — nine lessons with Mermaid diagrams, real code
+quotations, and exercises.
+
+It covers the message loop, `.Designer.cs` and `.resx`, the control lifecycle (including
+the design-time bug this project actually hit), data binding, Dapper against Oracle,
+layering, the UI thread, and how to test a WinForms application.
+
+---
+
 # Database: Oracle (Docker)
 
 The project was migrated from SQL Server LocalDB (`.mdf`) to **Oracle Database 23ai Free**
