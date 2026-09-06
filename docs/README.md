@@ -88,11 +88,19 @@ Chi tiết về database và kiến trúc nằm ở [README gốc](../README.md)
 Dự án này dùng **.NET Framework 4.7.2**, bản .NET cũ chỉ chạy trên Windows. Microsoft
 vẫn hỗ trợ nhưng đã đóng băng: không thêm tính năng mới.
 
+Đây là **lựa chọn có chủ đích**, không phải nợ kỹ thuật bị bỏ quên. Mục tiêu của dự án là
+học và làm WinForms, nên việc nâng lên .NET 8/9 và việc tách một tầng Web API đã được đưa
+ra khỏi kế hoạch cải tiến.
+
 Học WinForms vẫn đáng vì:
 
 - Rất nhiều phần mềm nội bộ doanh nghiệp đang chạy trên nó, và cần người bảo trì.
 - Các khái niệm — vòng đời control, hướng sự kiện, luồng UI, data binding — chuyển thẳng
   sang WPF, MAUI, và cả WinForms trên .NET 8/9.
 
-Nhưng nếu bạn bắt đầu một dự án **mới** hôm nay, hãy chọn WinForms trên .NET 8/9 thay vì
-.NET Framework. Cú pháp gần như giống hệt; xem bài 06 phần cuối.
+Và cũng cần nói rõ: **ở lại .NET Framework không có nghĩa là bỏ qua phần kỹ thuật tốt.**
+Mọi hạng mục còn lại trong kế hoạch — transaction, kiểm soát tương tranh, log, `async` —
+đều làm được trên 4.7.2. `async`/`await` có từ .NET Framework 4.5.
+
+Nếu sau này bạn bắt đầu một dự án **mới**, WinForms trên .NET 8/9 dùng gần như cùng API
+nhưng có thêm `IConfiguration` và DI thật.

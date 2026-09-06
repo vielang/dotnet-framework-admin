@@ -198,8 +198,14 @@ protected IEmployeeRepository Employees
 | Nhìn code biết ngay phụ thuộc gì | ✗ phải đọc thân hàm | ✓ nằm ở chữ ký |
 | Cần thư viện DI | Không | Thường là có |
 
-Đây là **đánh đổi có ý thức**, không phải cẩu thả. Khi nâng lên .NET 8/9 thì
-`Microsoft.Extensions.DependencyInjection` giải quyết được gọn hơn.
+Đây là **đánh đổi có ý thức**, không phải cẩu thả — và nó bị ép bởi designer, không phải
+bởi phiên bản .NET. Dù chạy trên .NET 8/9 thì `UserControl` vẫn cần constructor không
+tham số để designer vẽ được.
+
+Nếu muốn DI thật mà vẫn giữ .NET Framework, `Microsoft.Extensions.DependencyInjection`
+chạy được trên 4.7.2. Mẫu thường dùng là để `Program.Main` dựng container rồi cho form
+lấy phụ thuộc từ đó — vẫn là một dạng service locator ở biên giao diện, chỉ khác chỗ ai
+quản lý vòng đời đối tượng.
 
 ## Cấu trúc thư mục và ý nghĩa
 

@@ -210,7 +210,7 @@ holds credential material.
 > `admin` / `admin` with a proper hash. See the comment at the top of
 > `db/migrations/V4__hash_user_passwords.sql`.
 
-## 6. Useful container commands
+## 7. Useful container commands
 
 ```powershell
 docker compose -f db\docker-compose.yml logs -f      # watch startup
