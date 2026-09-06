@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SQL for the USERS table (login and registration).
+  Reachable from C# as "User.<id>", e.g. Sql.Get("User.FindByCredentials").
+-->
+<statements namespace="User">
+
+  <statement id="FindByCredentials">
+    SELECT id,
+           username,
+           password,
+           date_register
+    FROM   users
+    WHERE  username = :username
+    AND    password = :password
+  </statement>
+
+  <statement id="CountByUsername">
+    SELECT COUNT(id)
+    FROM   users
+    WHERE  username = :username
+  </statement>
+
+  <statement id="Insert">
+    INSERT INTO users (username, password, date_register)
+    VALUES (:username, :password, :dateRegister)
+  </statement>
+
+</statements>

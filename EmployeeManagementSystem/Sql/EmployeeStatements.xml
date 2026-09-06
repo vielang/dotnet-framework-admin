@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SQL for the EMPLOYEES table.
+
+  Every statement is reachable from C# as "Employee.<id>", e.g. Sql.Get("Employee.SelectAll").
+  Bind variables use Oracle ":name" syntax and are supplied through OracleParams,
+  which forces BindByName so the order here does not matter.
+
+  This file is copied next to the executable, so a statement can be fixed without
+  rebuilding the application.
+-->
+<statements namespace="Employee">
+
+  <statement id="SelectAll">
+    SELECT id,
+           employee_id,
+           full_name,
+           gender,
+           contact_number,
+           position,
+           image,
+           salary,
+           status
+    FROM   employees
+    WHERE  delete_date IS NULL
+    ORDER  BY id
+  </statement>
+
+  <statement id="SelectByStatus">
+    SELECT id,
+           employee_id,
+           full_name,
+           gender,
+           contact_number,
+           position,
+           image,
+           salary,
+           status
+    FROM   employees
+    WHERE  delete_date IS NULL
+    AND    status = :status
+    ORDER  BY id
+  </statement>
+
+  <statement id="CountAll">
+    SELECT COUNT(id)
+    FROM   employees
+    WHERE  delete_date IS NULL
+  </statement>
+
+  <statement id="CountByStatus">
+    SELECT COUNT(id)
+    FROM   employees
+    WHERE  delete_date IS NULL
+    AND    status = :status
+  </statement>
+
+  <statement id="ExistsByEmployeeId">
+    SELECT COUNT(*)
+    FROM   employees
+    WHERE  delete_date IS NULL
+    AND    employee_id = :employeeId
+  </statement>
+
+  <statement id="Insert">
+    INSERT INTO employees (employee_id,
+                           full_name,
+                           gender,
+                           contact_number,
+                           position,
+                           image,
+                           salary,
+                           insert_date,
+                           status)
+    VALUES (:employeeId,
+            :fullName,
+            :gender,
+            :contactNumber,
+            :position,
+            :image,
+            :salary,
+            :insertDate,
+            :status)
+  </statement>
+
+  <statement id="Update">
+    UPDATE employees
+    SET    full_name      = :fullName,
+           gender         = :gender,
+           contact_number = :contactNumber,
+           position       = :position,
+           status         = :status,
+           update_date    = :updateDate
+    WHERE  employee_id = :employeeId
+    AND    delete_date IS NULL
+  </statement>
+
+  <statement id="UpdateSalary">
+    UPDATE employees
+    SET    salary      = :salary,
+           update_date = :updateDate
+    WHERE  employee_id = :employeeId
+    AND    delete_date IS NULL
+  </statement>
+
+  <statement id="SoftDelete">
+    UPDATE employees
+    SET    delete_date = :deleteDate
+    WHERE  employee_id = :employeeId
+    AND    delete_date IS NULL
+  </statement>
+
+</statements>

@@ -1,0 +1,197 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{D1424A62-C307-4396-AEAF-70BCCC0CD124}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>EmployeeManagementSystem</RootNamespace>
+    <AssemblyName>EmployeeManagementSystem</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper">
+      <Version>2.1.66</Version>
+    </PackageReference>
+    <PackageReference Include="Oracle.ManagedDataAccess">
+      <Version>23.26.300</Version>
+    </PackageReference>
+  </ItemGroup>
+  <!-- ==================== Composition root ==================== -->
+  <ItemGroup>
+    <Compile Include="AppServices.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <!-- ==================== Models ==================== -->
+  <ItemGroup>
+    <Compile Include="Models\Employee.cs" />
+    <Compile Include="Models\EmployeeStatus.cs" />
+    <Compile Include="Models\User.cs" />
+  </ItemGroup>
+  <!-- ==================== Data access ==================== -->
+  <ItemGroup>
+    <Compile Include="Data\EmployeeRepository.cs" />
+    <Compile Include="Data\IDbConnectionFactory.cs" />
+    <Compile Include="Data\IEmployeeRepository.cs" />
+    <Compile Include="Data\IUserRepository.cs" />
+    <Compile Include="Data\OracleConnectionFactory.cs" />
+    <Compile Include="Data\OracleParams.cs" />
+    <Compile Include="Data\SqlCatalog.cs" />
+    <Compile Include="Data\UserRepository.cs" />
+  </ItemGroup>
+  <!-- ==================== SQL statements ====================
+       Copied next to the executable and read at startup by SqlCatalog,
+       so a statement can be corrected without rebuilding.            -->
+  <ItemGroup>
+    <Content Include="Sql\EmployeeStatements.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Sql\UserStatements.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <!-- ==================== Forms ==================== -->
+  <ItemGroup>
+    <Compile Include="Forms\LoginForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\LoginForm.Designer.cs">
+      <DependentUpon>LoginForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\RegisterForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\RegisterForm.Designer.cs">
+      <DependentUpon>RegisterForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\UiMessage.cs" />
+    <EmbeddedResource Include="Forms\LoginForm.resx">
+      <DependentUpon>LoginForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\RegisterForm.resx">
+      <DependentUpon>RegisterForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <!-- ==================== Views hosted by MainForm ==================== -->
+  <ItemGroup>
+    <Compile Include="Views\DataView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Views\EmployeeGrid.cs" />
+    <Compile Include="Views\DashboardView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Views\DashboardView.Designer.cs">
+      <DependentUpon>DashboardView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Views\EmployeeView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Views\EmployeeView.Designer.cs">
+      <DependentUpon>EmployeeView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Views\SalaryView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Views\SalaryView.Designer.cs">
+      <DependentUpon>SalaryView.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="Views\DashboardView.resx">
+      <DependentUpon>DashboardView.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Views\EmployeeView.resx">
+      <DependentUpon>EmployeeView.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Views\SalaryView.resx">
+      <DependentUpon>SalaryView.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <!-- ==================== Project properties ==================== -->
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <None Include="App.config" />
+  </ItemGroup>
+  <!-- ==================== Assets ==================== -->
+  <ItemGroup>
+    <None Include="Resources\Active Employee.png" />
+    <None Include="Resources\developer-team-icon-vector-7331606.jpg" />
+    <None Include="Resources\empl_dashboard_icon.jpg" />
+    <None Include="Resources\EMPL_M_S.jpg" />
+    <None Include="Resources\inAct.jpg" />
+    <None Include="Resources\inactive-icon.jpg" />
+    <None Include="Resources\LogOut_icon.jpg" />
+    <None Include="Resources\LogOut_icon1.jpg" />
+    <None Include="Resources\pexels-jane-doan-1024248.jpg" />
+    <!-- Employee photos live next to the executable at runtime. -->
+    <Content Include="Directory\**\*.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

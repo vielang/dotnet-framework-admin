@@ -1,0 +1,21 @@
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: ems-oracle
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: Oracle_Sys2026      # password for SYS / SYSTEM
+      APP_USER: ems                        # application schema owner
+      APP_USER_PASSWORD: Ems_Pass2026
+    volumes:
+      - ems-oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+volumes:
+  ems-oracle-data:
