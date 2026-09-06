@@ -19,7 +19,7 @@ flowchart TB
     subgraph T["Test được ngay, không cần UI"]
         direction LR
         A["SqlCatalog · 15<br/>PasswordHasher · 19<br/><i>34 test</i>"]
-        B["EmployeeRepository · 19<br/>UserRepository · 11<br/><i>30 test</i>"]
+        B["EmployeeRepository · 22<br/>UserRepository · 11<br/><i>33 test</i>"]
     end
 
     subgraph D["Test được, cần mẹo"]
@@ -35,7 +35,7 @@ flowchart TB
     style N fill:#f0f0f0,stroke:#b8b8b8
 ```
 
-Dự án có **70 test** trong `EmployeeManagementSystem.Tests/`.
+Dự án có **73 test** trong `EmployeeManagementSystem.Tests/`.
 
 ## Chạy test
 
@@ -58,8 +58,7 @@ Không cần database, không cần UI. Nhanh, luôn chạy được.
 [Fact]
 public void Unknown_key_reports_the_keys_it_does_know()
 {
-    WriteFile("a.xml", "<statements namespace='Employee'>" +
-                       "<statement id='SelectAll'>SELECT 1 FROM dual</statement></statements>");
+    WriteFile("a.xml", "<statements namespace='Employee'><statement id='SelectAll'>SELECT 1 FROM dual</statement></statements>");
 
     SqlCatalog catalog = SqlCatalog.LoadFrom(_dir);
     var ex = Assert.Throws<KeyNotFoundException>(() => catalog.Get("Employee.Missing"));
@@ -145,7 +144,7 @@ flowchart TD
     style F fill:#fff5e8,stroke:#e5bf87
 ```
 
-Kết quả: `40 passed, 30 skipped, 0 failed` khi không có Docker. Bạn vẫn biết chính xác cái
+Kết quả: `40 passed, 33 skipped, 0 failed` khi không có Docker. Bạn vẫn biết chính xác cái
 gì đã chạy và cái gì chưa.
 
 ### Test canh đúng một cạm bẫy
@@ -156,8 +155,10 @@ Nhớ vụ bind theo vị trí ở [bài 05](05-ket-noi-database.md)? Có một 
 [SkippableFact]
 public void UpdateSalary_binds_parameters_by_name_not_position()
 {
-    Employee a = NewEmployee("A");  a.Salary = 100;
-    Employee b = NewEmployee("B");  b.Salary = 200;
+    Employee a = NewEmployee("A");
+    Employee b = NewEmployee("B");
+    a.Salary = 100;
+    b.Salary = 200;
     _employees.Add(a);
     _employees.Add(b);
 
@@ -321,8 +322,13 @@ dynamic row = ReadStoredRow(username);          // SELECT thang tu bang
 
 Assert.Equal("PBKDF2-SHA256", (string)row.PASSWORD_ALGORITHM);
 Assert.True(Convert.ToInt32(row.PASSWORD_ITERATIONS) >= 100000);
-Assert.DoesNotContain(password, (string)row.PASSWORD_HASH);
-Assert.DoesNotContain(password, (string)row.PASSWORD_SALT);
+
+string hash = (string)row.PASSWORD_HASH;
+string salt = (string)row.PASSWORD_SALT;
+
+Assert.NotEqual(password, hash);
+Assert.DoesNotContain(password, hash);
+Assert.DoesNotContain(password, salt);
 ```
 
 ## Kim tự tháp test của dự án
@@ -330,7 +336,7 @@ Assert.DoesNotContain(password, (string)row.PASSWORD_SALT);
 ```mermaid
 flowchart TB
     A["<b>6</b> · Designer-safety<br/><i>chậm, cần STA + message loop</i>"]
-    B["<b>30</b> · Integration<br/><i>cần Oracle, bỏ qua nếu không có</i>"]
+    B["<b>33</b> · Integration<br/><i>cần Oracle, bỏ qua nếu không có</i>"]
     C["<b>34</b> · Unit<br/><i>nhanh, luôn chạy được</i>"]
 
     A --- B --- C

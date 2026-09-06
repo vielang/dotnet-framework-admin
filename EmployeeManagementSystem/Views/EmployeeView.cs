@@ -10,10 +10,19 @@ namespace EmployeeManagementSystem.Views
     /// <summary>Create, update and soft-delete employees.</summary>
     public partial class EmployeeView : DataView
     {
+        /// <summary>Where photo paths are stored relative to, and where new photos are copied.</summary>
+        private const string PictureFolderName = "Directory";
+
+        /// <summary>The photo path already stored for the selected employee, if any.</summary>
+        private string _storedPicturePath;
+
+        /// <summary>A file the user just picked with Import, not yet saved. Null when unchanged.</summary>
+        private string _importedPicturePath;
+
         /// <summary>Folder next to the executable where employee photos are stored.</summary>
         private static string PictureDirectory
         {
-            get { return Path.Combine(Application.StartupPath, "Directory"); }
+            get { return Path.Combine(Application.StartupPath, PictureFolderName); }
         }
 
         public EmployeeView()
@@ -44,7 +53,7 @@ namespace EmployeeManagementSystem.Views
                     return;
                 }
 
-                employee.Image = SavePicture(employee.EmployeeId);
+                employee.Image = SavePicture(employee.EmployeeId, null);
                 employee.Salary = 0;
 
                 Employees.Add(employee);
@@ -75,6 +84,8 @@ namespace EmployeeManagementSystem.Views
 
             try
             {
+                employee.Image = SavePicture(employee.EmployeeId, _storedPicturePath);
+
                 if (Employees.Update(employee) == 0)
                 {
                     UiMessage.Warn("No employee found with ID " + employee.EmployeeId + ".");
@@ -135,13 +146,15 @@ namespace EmployeeManagementSystem.Views
         /// <summary>Reads the form into an Employee, or returns null after reporting what is missing.</summary>
         private Employee ReadForm()
         {
+            // A photo is optional. Requiring one used to make any employee whose photo
+            // file was missing impossible to update at all - the form simply reported
+            // "fill all blank fields" and never said which.
             if (addEmployee_id.Text.Trim().Length == 0
                 || addEmployee_fullName.Text.Trim().Length == 0
                 || addEmployee_gender.Text.Trim().Length == 0
                 || addEmployee_phoneNumber.Text.Trim().Length == 0
                 || addEmployee_position.Text.Trim().Length == 0
-                || addEmployee_status.Text.Trim().Length == 0
-                || addEmployee_picture.Image == null)
+                || addEmployee_status.Text.Trim().Length == 0)
             {
                 UiMessage.Warn("Please fill all blank fields.");
                 return null;
@@ -166,8 +179,10 @@ namespace EmployeeManagementSystem.Views
             addEmployee_phoneNumber.Text = "";
             addEmployee_position.SelectedIndex = -1;
             addEmployee_status.SelectedIndex = -1;
-            addEmployee_picture.Image = null;
-            addEmployee_picture.ImageLocation = null;
+
+            SetPicture(null);
+            _storedPicturePath = null;
+            _importedPicturePath = null;
         }
 
         private void dataGridView1_CellClick(object sender, DataGridViewCellEventArgs e)
@@ -185,6 +200,8 @@ namespace EmployeeManagementSystem.Views
             addEmployee_position.Text = employee.Position;
             addEmployee_status.Text = employee.Status;
 
+            _storedPicturePath = employee.Image;
+            _importedPicturePath = null;      // selecting a row discards an unsaved import
             ShowPicture(employee.Image);
         }
 
@@ -194,47 +211,110 @@ namespace EmployeeManagementSystem.Views
             {
                 dialog.Filter = "Image Files (*.jpg; *.png)|*.jpg;*.png";
 
-                if (dialog.ShowDialog() == DialogResult.OK)
+                if (dialog.ShowDialog() != DialogResult.OK)
                 {
-                    addEmployee_picture.ImageLocation = dialog.FileName;
+                    return;
+                }
+
+                try
+                {
+                    using (var stream = new FileStream(dialog.FileName, FileMode.Open, FileAccess.Read))
+                    {
+                        SetPicture(Image.FromStream(stream));
+                    }
+                    _importedPicturePath = dialog.FileName;
+                }
+                catch (Exception ex)
+                {
+                    UiMessage.Error(ex);
                 }
             }
         }
 
         // ---------------------------------------------------------------- pictures
 
-        /// <summary>Loads a photo without leaving the file locked. Missing files clear the box.</summary>
-        private void ShowPicture(string path)
+        /// <summary>
+        /// Turns a stored photo path into one that can actually be opened.
+        ///
+        /// Rows written by this application store a path relative to the executable
+        /// ("Directory\EMID-01.jpg"). A bare relative path is resolved against the
+        /// *current working directory*, which is not necessarily where the .exe lives -
+        /// launching from a shortcut with a different "Start in" was enough to make
+        /// every photo disappear. Older rows may still hold an absolute path, so both
+        /// are accepted.
+        /// </summary>
+        private static string ResolvePicturePath(string stored)
         {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            {
-                addEmployee_picture.Image = null;
-                addEmployee_picture.ImageLocation = null;
-                return;
-            }
-
-            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read))
-            {
-                addEmployee_picture.Image = Image.FromStream(stream);
-            }
-            addEmployee_picture.ImageLocation = path;
-        }
-
-        /// <summary>Copies the imported photo next to the executable and returns its stored path.</summary>
-        private string SavePicture(string employeeId)
-        {
-            string source = addEmployee_picture.ImageLocation;
-            string target = Path.Combine(PictureDirectory, employeeId + ".jpg");
-
-            if (string.IsNullOrEmpty(source))
+            if (string.IsNullOrWhiteSpace(stored))
             {
                 return null;
             }
 
-            Directory.CreateDirectory(PictureDirectory);
-            File.Copy(source, target, true);
+            return Path.IsPathRooted(stored)
+                ? stored
+                : Path.Combine(Application.StartupPath, stored);
+        }
 
-            return target;
+        /// <summary>Loads a photo without leaving the file locked. Missing files clear the box.</summary>
+        private void ShowPicture(string storedPath)
+        {
+            string full = ResolvePicturePath(storedPath);
+
+            if (full == null || !File.Exists(full))
+            {
+                SetPicture(null);
+                return;
+            }
+
+            // Read through a stream so the file itself is not left locked.
+            using (var stream = new FileStream(full, FileMode.Open, FileAccess.Read))
+            {
+                SetPicture(Image.FromStream(stream));
+            }
+        }
+
+        /// <summary>
+        /// Replaces the displayed photo, disposing the previous one.
+        ///
+        /// PictureBox does not dispose the image it is holding when a new one is
+        /// assigned, so without this every row click would abandon a bitmap and leak
+        /// the unmanaged GDI+ memory behind it.
+        /// </summary>
+        private void SetPicture(Image image)
+        {
+            Image previous = addEmployee_picture.Image;
+            addEmployee_picture.Image = image;
+
+            if (previous != null && !ReferenceEquals(previous, image))
+            {
+                previous.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Works out what belongs in the employee's image column, copying the file in
+        /// when the user imported one.
+        /// </summary>
+        /// <param name="existingPath">
+        /// What is already stored for this employee, kept when nothing was imported.
+        /// Adding a new employee passes null: a new person does not inherit the photo
+        /// of whichever row happened to be selected in the grid.
+        /// </param>
+        private string SavePicture(string employeeId, string existingPath)
+        {
+            if (string.IsNullOrEmpty(_importedPicturePath))
+            {
+                return existingPath;            // nothing was imported: leave it alone
+            }
+
+            string relative = Path.Combine(PictureFolderName, employeeId + ".jpg");
+            string target = Path.Combine(Application.StartupPath, relative);
+
+            Directory.CreateDirectory(PictureDirectory);
+            File.Copy(_importedPicturePath, target, true);
+
+            // Stored relative, so the application keeps working if the folder moves.
+            return relative;
         }
     }
 }

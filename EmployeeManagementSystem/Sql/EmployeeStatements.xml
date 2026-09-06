@@ -89,6 +89,7 @@
            gender         = :gender,
            contact_number = :contactNumber,
            position       = :position,
+           image          = :image,
            status         = :status,
            update_date    = :updateDate
     WHERE  employee_id = :employeeId

@@ -9,6 +9,12 @@
 --
 -- To change the seeded password, hash the new one with PasswordHasher.Create
 -- and replace all four values. Do not hand-edit the hash.
+--
+-- Only EMID-01 gets a photo, because Directory\EMID-01.jpg is the only image
+-- that actually ships. The other two pointed at files that do not exist, which
+-- showed an empty picture box and - until the form stopped demanding a photo -
+-- made those rows impossible to update at all. NULL is the honest value for
+-- "this employee has no photo".
 -- =====================================================================
 
 SET DEFINE OFF
@@ -29,10 +35,10 @@ INSERT INTO employees (employee_id, full_name, gender, contact_number, position,
 VALUES ('EMID-01', 'Nguyen Van A', 'Male', '0900000001', 'Developer', 'Directory\EMID-01.jpg', 1500, TRUNC(SYSDATE), 'Active');
 
 INSERT INTO employees (employee_id, full_name, gender, contact_number, position, image, salary, insert_date, status)
-VALUES ('EMID-02', 'Tran Thi B', 'Female', '0900000002', 'Manager', 'Directory\EMID-02.jpg', 2500, TRUNC(SYSDATE), 'Active');
+VALUES ('EMID-02', 'Tran Thi B', 'Female', '0900000002', 'Manager', NULL, 2500, TRUNC(SYSDATE), 'Active');
 
 INSERT INTO employees (employee_id, full_name, gender, contact_number, position, image, salary, insert_date, status)
-VALUES ('EMID-03', 'Le Van C', 'Male', '0900000003', 'Designer', 'Directory\EMID-03.jpg', 1200, TRUNC(SYSDATE), 'Inactive');
+VALUES ('EMID-03', 'Le Van C', 'Male', '0900000003', 'Designer', NULL, 1200, TRUNC(SYSDATE), 'Inactive');
 
 COMMIT;
 

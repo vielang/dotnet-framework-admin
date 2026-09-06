@@ -172,9 +172,25 @@ public class DataView : UserControl
 
     public void RefreshData()
     {
-        if (IsDesignTime || !HasRepository) return;
-        // ...
-        LoadData();
+        if (IsDesignTime || !HasRepository)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            Invoke((MethodInvoker)RefreshData);
+            return;
+        }
+
+        try
+        {
+            LoadData();
+        }
+        catch (Exception ex)
+        {
+            UiMessage.Error(ex);
+        }
     }
 
     protected override void OnLoad(EventArgs e)

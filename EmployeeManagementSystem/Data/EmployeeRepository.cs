@@ -118,6 +118,7 @@ namespace EmployeeManagementSystem.Data
                             .Set("gender", employee.Gender)
                             .Set("contactNumber", employee.ContactNumber)
                             .Set("position", employee.Position)
+                            .Set("image", employee.Image)
                             .Set("status", employee.Status)
                             .Set("updateDate", DateTime.Today)
                             .Set("employeeId", employee.EmployeeId));

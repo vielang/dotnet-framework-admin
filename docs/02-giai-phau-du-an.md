@@ -51,6 +51,7 @@ file Designer bất cứ lúc nào mà không đụng vào code của bạn**.
 Mở `EmployeeManagementSystem/Forms/LoginForm.Designer.cs`. Bạn sẽ thấy ba phần:
 
 ```csharp
+// Rút gọn cho dễ đọc — file thật dài hơn nhiều
 partial class LoginForm
 {
     // 1. Nơi chứa component (dùng cho Dispose)
@@ -170,12 +171,12 @@ flowchart TD
     end
 
     subgraph TST["EmployeeManagementSystem.Tests/ — kiểm thử"]
-        T["xUnit, 46 test"]
+        T["xUnit, 73 test"]
     end
 
     subgraph DB["db/ — database"]
         DC["docker-compose.yml"]
-        MG["migrations/V1, V2, V3"]
+        MG["migrations/V1…V4"]
     end
 
     P --> AS

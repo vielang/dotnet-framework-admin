@@ -143,6 +143,61 @@ namespace EmployeeManagementSystem.Tests
             Assert.Equal(200, Reload(b.EmployeeId).Salary);   // untouched
         }
 
+        /// <summary>
+        /// Update used to leave the image column alone, so a photo could never be
+        /// changed after the employee was created - importing a new one and pressing
+        /// Update discarded it silently.
+        /// </summary>
+        [SkippableFact]
+        public void Update_saves_the_image_path()
+        {
+            _oracle.SkipIfUnavailable();
+
+            Employee added = NewEmployee();
+            added.Image = null;
+            _employees.Add(added);
+            Assert.Null(Reload(added.EmployeeId).Image);
+
+            added.Image = @"Directory\" + added.EmployeeId + ".jpg";
+            Assert.Equal(1, _employees.Update(added));
+
+            Assert.Equal(@"Directory\" + added.EmployeeId + ".jpg", Reload(added.EmployeeId).Image);
+        }
+
+        [SkippableFact]
+        public void Update_can_clear_the_image_path()
+        {
+            _oracle.SkipIfUnavailable();
+
+            Employee added = NewEmployee();
+            added.Image = @"Directory\something.jpg";
+            _employees.Add(added);
+
+            added.Image = null;
+            Assert.Equal(1, _employees.Update(added));
+
+            Assert.Null(Reload(added.EmployeeId).Image);
+        }
+
+        [SkippableFact]
+        public void An_employee_without_a_photo_is_a_valid_employee()
+        {
+            _oracle.SkipIfUnavailable();
+
+            Employee added = NewEmployee();
+            added.Image = null;
+
+            _employees.Add(added);
+
+            Employee loaded = Reload(added.EmployeeId);
+            Assert.NotNull(loaded);
+            Assert.Null(loaded.Image);
+
+            loaded.FullName = "Renamed With No Photo";
+            Assert.Equal(1, _employees.Update(loaded));
+            Assert.Equal("Renamed With No Photo", Reload(added.EmployeeId).FullName);
+        }
+
         [SkippableFact]
         public void Update_reports_zero_rows_for_an_unknown_employee()
         {

@@ -9,11 +9,12 @@ lấy lại được đúng object đó. Làm sao?
 
 ## Cơ chế: gán DataSource
 
-Cách thủ công là lặp và thêm từng dòng. **Đừng làm vậy.** WinForms có data binding:
+Cách thủ công là lặp và thêm từng dòng. **Đừng làm vậy.** WinForms có data binding —
+đây là toàn bộ phần cốt lõi của `EmployeeGrid.Bind`:
 
 ```csharp
-dataGridView1.AutoGenerateColumns = true;
-dataGridView1.DataSource = new List<Employee>(employees);
+grid.AutoGenerateColumns = true;
+grid.DataSource = new List<Employee>(employees);
 ```
 
 Hai dòng. Lưới tự đọc các **public property** của `Employee` bằng reflection và sinh một
@@ -129,6 +130,76 @@ số.
 
 > `e.RowIndex == -1` nghĩa là người dùng click vào **header**. Luôn phải kiểm tra — đây là
 > nguồn `IndexOutOfRangeException` kinh điển.
+
+## Ảnh: hai cái bẫy của `PictureBox`
+
+Dòng `ShowPicture(employee.Image)` ở trên trông vô hại, nhưng chứa hai bẫy mà dự án này
+đã dính cả hai.
+
+### Bẫy 1 — `PictureBox` không tự giải phóng ảnh cũ
+
+Gán `pictureBox.Image = anhMoi` **không** giải phóng ảnh đang giữ. `Image` là đối tượng
+bọc bộ nhớ GDI+ không được quản lý bởi garbage collector theo cách thông thường. Mỗi lần
+người dùng bấm một dòng, một bitmap bị bỏ rơi.
+
+```csharp
+// Views/EmployeeView.cs
+private void SetPicture(Image image)
+{
+    Image previous = addEmployee_picture.Image;
+    addEmployee_picture.Image = image;
+
+    if (previous != null && !ReferenceEquals(previous, image))
+    {
+        previous.Dispose();
+    }
+}
+```
+
+Kiểm tra `ReferenceEquals` là cần thiết: gán lại chính ảnh đang hiển thị rồi `Dispose` nó
+sẽ để lại một `PictureBox` trỏ vào đối tượng đã huỷ, và lần vẽ tiếp theo ném
+`ArgumentException`.
+
+### Bẫy 2 — đường dẫn tương đối không tính từ nơi bạn nghĩ
+
+Cột `image` lưu chuỗi như `Directory\EMID-01.jpg`. Nhưng `File.Exists("Directory\...")`
+giải theo **thư mục làm việc hiện tại**, không phải nơi đặt file `.exe`. Chạy app từ một
+shortcut có "Start in" khác là mọi ảnh biến mất.
+
+```mermaid
+flowchart TD
+    A["Cột image:<br/><code>Directory\EMID-01.jpg</code>"] --> B{"Đường dẫn tuyệt đối?"}
+    B -->|Có| C["Dùng nguyên"]
+    B -->|Không| D["Ghép với<br/><code>Application.StartupPath</code>"]
+    D --> E["Luôn trỏ đúng chỗ<br/>dù CWD là gì"]
+    C --> E
+
+    F["❌ File.Exists(stored)<br/><i>giải theo CWD</i>"] -.cách sai.-> G["Ảnh biến mất<br/>khi CWD khác"]
+
+    style E fill:#e6f4ec,stroke:#7fb79a
+    style G fill:#ffe9e6,stroke:#d98b84
+```
+
+```csharp
+private static string ResolvePicturePath(string stored)
+{
+    if (string.IsNullOrWhiteSpace(stored))
+    {
+        return null;
+    }
+
+    return Path.IsPathRooted(stored)
+        ? stored
+        : Path.Combine(Application.StartupPath, stored);
+}
+```
+
+Nhận cả hai dạng vì dữ liệu cũ có thể đã lưu đường dẫn tuyệt đối. Khi **ghi**, ứng dụng
+luôn lưu dạng tương đối, để cả thư mục di chuyển được mà không hỏng.
+
+> **Bài học rộng hơn:** đường dẫn tương đối trong dữ liệu là một quả bom hẹn giờ, vì
+> "tương đối với cái gì" không nằm trong chính chuỗi đó. Hoặc lưu tuyệt đối, hoặc quy định
+> rõ gốc và luôn giải theo gốc đó — đừng phó mặc cho `Environment.CurrentDirectory`.
 
 ## Ẩn cột và đổi tiêu đề
 
