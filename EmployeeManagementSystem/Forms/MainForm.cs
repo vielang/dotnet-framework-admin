@@ -11,9 +11,12 @@ namespace EmployeeManagementSystem.Forms
             InitializeComponent();
         }
 
+        /// <summary>True when the user logged out, which sends them back to login.</summary>
+        public bool LogoutRequested { get; private set; }
+
         private void exit_Click(object sender, EventArgs e)
         {
-            Application.Exit();
+            Close();        // LogoutRequested stays false, so the application ends
         }
 
         private void logout_btn_Click(object sender, EventArgs e)
@@ -23,8 +26,8 @@ namespace EmployeeManagementSystem.Forms
                 return;
             }
 
-            new LoginForm().Show();
-            this.Hide();
+            LogoutRequested = true;
+            Close();
         }
 
         private void dashboard_btn_Click(object sender, EventArgs e)

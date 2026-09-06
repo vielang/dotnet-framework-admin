@@ -33,12 +33,18 @@ namespace EmployeeManagementSystem.Views
         {
             string employeeId = salary_employeeID.Text.Trim();
 
-            if (employeeId.Length == 0
-                || salary_name.Text.Trim().Length == 0
-                || salary_position.Text.Trim().Length == 0
-                || salary_salary.Text.Trim().Length == 0)
+            // The id, name and position boxes are disabled - they are filled by
+            // clicking the grid. Telling the user to "fill all blank fields" asked
+            // them to type into boxes they cannot type into.
+            if (employeeId.Length == 0)
             {
-                UiMessage.Warn("Please fill all blank fields.");
+                UiMessage.Warn("Select an employee from the list first.");
+                return;
+            }
+
+            if (salary_salary.Text.Trim().Length == 0)
+            {
+                UiMessage.Warn("Enter a salary.");
                 return;
             }
 

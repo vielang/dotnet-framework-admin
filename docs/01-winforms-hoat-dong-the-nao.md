@@ -72,7 +72,7 @@ static void Main()
         return;
     }
 
-    Application.Run(new LoginForm());
+    RunSessions();
 }
 ```
 
@@ -84,17 +84,26 @@ static void Main()
 | `EnableVisualStyles()` | Dùng giao diện theo theme Windows thay vì kiểu Windows 95. |
 | `SetCompatibleTextRenderingDefault(false)` | Vẽ chữ bằng GDI thay vì GDI+. Phải gọi **trước** khi tạo control đầu tiên. |
 | `AppServices.Initialize()` | Của riêng dự án này — dựng repository. Xem [bài 06](06-kien-truc-phan-tang.md). |
-| `Application.Run(new LoginForm())` | **Đây là message loop.** Dòng này chặn cho tới khi form đóng. |
+| `RunSessions()` | Vòng lặp phiên: đăng nhập → màn hình chính → quay lại đăng nhập. Xem bên dưới. |
 
 Lưu ý cách `Program.cs` bọc `Initialize()` trong `try`: nếu không kết nối được cấu hình,
 app hiện một thông báo rồi thoát sạch, thay vì mở lên rồi lỗi lung tung ở từng màn hình.
 
-### `Application.Run` kết thúc khi nào?
+### Message loop đến từ đâu?
+
+Hầu hết tài liệu WinForms sẽ cho bạn thấy dòng này:
+
+```csharp
+Application.Run(new MainForm());
+```
+
+`Application.Run` khởi động message loop và **chặn cho tới khi đúng form được truyền vào
+bị đóng**:
 
 ```mermaid
 flowchart LR
     A["Application.Run(form)"] --> B["Hiện form<br/>Bắt đầu loop"]
-    B --> C{"Form chính<br/>đã đóng?"}
+    B --> C{"Form ĐÓ<br/>đã đóng?"}
     C -->|chưa| D["Xử lý thông điệp<br/>tiếp theo"]
     D --> C
     C -->|rồi| E["Loop kết thúc<br/>Main() return<br/>Tiến trình thoát"]
@@ -102,22 +111,94 @@ flowchart LR
     style E fill:#ffe9e6,stroke:#d98b84
 ```
 
-Điều này giải thích một chi tiết trong dự án: khi đăng xuất, `MainForm` **ẩn** chính nó
-chứ không đóng:
+Ba chữ **"form ĐÓ"** là chỗ nhiều người trượt, và dự án này đã trượt — phần ngay sau đây
+kể lại.
+
+Dự án hiện **không dùng `Application.Run`**. `Form.ShowDialog()` cũng tự chạy một message
+loop, nên vẫn đủ để ứng dụng sống; khác biệt là loop kết thúc khi *cửa sổ đang hiện* đóng,
+chứ không phải khi một form cố định nào đó đóng.
+
+### Một mẫu điều hướng SAI, và vì sao nó sai
+
+Phiên bản đầu của dự án chuyển màn hình thế này:
 
 ```csharp
-// Forms/MainForm.cs
+// PHIÊN BẢN CŨ — có hai lỗi
 new LoginForm().Show();
-this.Hide();      // Hide, không phải Close
+this.Hide();          // form hiện tại chỉ bị ẩn, không bao giờ được giải phóng
 ```
 
-Nếu gọi `Close()` trên form chính, message loop kết thúc và **cả ứng dụng thoát** — kể cả
-khi `LoginForm` mới vừa được hiện ra.
+Mẫu này xuất hiện ở bốn chỗ, và gây ra hai vấn đề đo được:
 
-> **Ghi chú thẳng thắn:** cách này chạy được nhưng không đẹp. Mỗi lần đăng xuất lại tạo
-> thêm một `LoginForm` mới, còn form cũ chỉ bị ẩn và vẫn nằm trong bộ nhớ. Cách chuẩn hơn
-> là dùng `LoginForm` như dialog (`ShowDialog`) và cho `Application.Run` chạy trên
-> `MainForm`. Đây là [bài tập 3](09-bai-tap.md).
+**Form tích tụ vô hạn.** Form cũ chỉ ẩn đi chứ không `Dispose`. Chuyển qua lại giữa
+Login và Register 5 lần để lại **6 form còn sống**, mỗi form giữ control và handle GDI.
+
+**Tiến trình zombie.** `Application.Run(loginForm)` chỉ kết thúc khi **đúng form đó**
+đóng. Sau khi đăng nhập, form ấy đang bị *ẩn* — chưa đóng. Nhấn Alt+F4 lên `MainForm`
+(vẫn hoạt động dù `FormBorderStyle.None`) sẽ đóng cửa sổ duy nhất đang hiện, nhưng
+message loop vẫn chạy: **không còn cửa sổ nào, mà tiến trình vẫn sống.**
+
+```mermaid
+flowchart TB
+    subgraph BAD["❌ Show + Hide"]
+        direction TB
+        X1["Application.Run(LoginForm)"] --> X2["LoginForm.Hide()<br/>MainForm.Show()"]
+        X2 --> X3["Đóng MainForm"]
+        X3 --> X4["LoginForm vẫn mở (ẩn)<br/>→ loop không kết thúc<br/>→ tiến trình zombie"]
+    end
+
+    subgraph GOOD["✓ Vòng lặp phiên + ShowDialog"]
+        direction TB
+        Y1["while (true)"] --> Y2["using LoginForm<br/>ShowDialog()"]
+        Y2 --> Y3{"LoginSucceeded?"}
+        Y3 -->|không| Y4["return → thoát"]
+        Y3 -->|có| Y5["using MainForm<br/>ShowDialog()"]
+        Y5 --> Y6{"LogoutRequested?"}
+        Y6 -->|có| Y1
+        Y6 -->|không| Y4
+    end
+
+    style BAD fill:#ffe9e6,stroke:#d98b84
+    style GOOD fill:#e6f4ec,stroke:#7fb79a
+```
+
+Cách hiện tại nằm ở `Program.cs`. Mỗi cửa sổ hiện **modal** và được `Dispose` trước khi
+cửa sổ tiếp theo mở, nên **mỗi lúc chỉ đúng một form còn sống**:
+
+```csharp
+private static void RunSessions()
+{
+    while (true)
+    {
+        using (var login = new LoginForm())
+        {
+            login.ShowDialog();
+
+            if (!login.LoginSucceeded)
+            {
+                return;     // the user closed or exited the login window
+            }
+        }
+
+        using (var main = new MainForm())
+        {
+            main.ShowDialog();
+
+            if (!main.LogoutRequested)
+            {
+                return;     // anything other than "log out" ends the application
+            }
+        }
+    }
+}
+```
+
+Form không tự quyết định đi đâu tiếp; nó chỉ **đặt một cờ rồi đóng lại**, và vòng lặp
+quyết định. Vì cờ mặc định là `false`, đóng cửa sổ mà không đặt gì cả cũng đồng nghĩa
+"kết thúc ứng dụng" — không còn đường nào dẫn tới zombie.
+
+> `ShowDialog()` tự chạy message loop riêng, nên ở đây **không cần `Application.Run`**
+> nữa. Ứng dụng kết thúc khi `Main()` return, đúng như một chương trình console.
 
 ## Hướng sự kiện nghĩa là gì
 
@@ -184,20 +265,24 @@ vào cùng dữ liệu, bạn có bug.
 ## Tự kiểm tra
 
 1. Vì sao `Main()` cần `[STAThread]`?
-2. `Application.Run(new LoginForm())` return khi nào?
+2. `Application.Run(form)` return khi nào? Vì sao dự án này không dùng nó?
 3. Bạn đặt `Thread.Sleep(5000)` vào trong `login_btn_Click`. Người dùng thấy gì?
-4. Vì sao `MainForm` gọi `Hide()` chứ không phải `Close()` lúc đăng xuất?
+4. Mẫu `new OtherForm().Show(); this.Hide();` gây ra hai vấn đề gì?
 
 <details>
 <summary>Đáp án</summary>
 
 1. Vì các tính năng dựa trên COM — clipboard, kéo-thả, `OpenFileDialog` — yêu cầu luồng
    ở chế độ STA. Thiếu nó, `addEmployee_importBtn_Click` (dùng `OpenFileDialog`) sẽ hỏng.
-2. Khi form được truyền vào bị đóng. Lúc đó loop dừng, `Main()` return, tiến trình thoát.
+2. Khi **đúng form được truyền vào** bị đóng — không phải khi form cuối cùng đóng. Dự án
+   không dùng nó vì luồng đăng nhập → chính → đăng xuất cần đổi cửa sổ nhiều lần; buộc một
+   form cố định làm "form chính" chính là thứ tạo ra tiến trình zombie mô tả ở trên.
 3. Cửa sổ đứng hình 5 giây: không vẽ lại, không nhận click, tiêu đề có thể thành
    "(Not Responding)". Vì loop bị chặn nên không lấy được thông điệp `WM_PAINT` nào.
-4. Vì `MainForm` là form được truyền cho `Application.Run`. Đóng nó sẽ kết thúc message
-   loop và thoát cả ứng dụng, khiến `LoginForm` vừa hiện ra cũng biến mất.
+4. Thứ nhất, form cũ chỉ bị ẩn chứ không `Dispose`, nên chúng tích tụ — 5 lần chuyển qua
+   lại để lại 6 form. Thứ hai, `Application.Run` canh form đầu tiên; form đó bị ẩn chứ
+   chưa đóng, nên đóng cửa sổ đang hiện để lại một tiến trình không còn cửa sổ nào mà vẫn
+   chạy.
 
 </details>
 

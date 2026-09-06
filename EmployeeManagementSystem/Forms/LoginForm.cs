@@ -30,15 +30,32 @@ namespace EmployeeManagementSystem.Forms
             get { return _injectedRepository ?? AppServices.Users; }
         }
 
+        /// <summary>True when the user signed in. Program.RunSessions reads this.</summary>
+        public bool LoginSucceeded { get; private set; }
+
         private void exit_Click(object sender, EventArgs e)
         {
-            Application.Exit();
+            Close();        // LoginSucceeded stays false, so the application ends
         }
 
         private void login_signupBtn_Click(object sender, EventArgs e)
         {
-            new RegisterForm().Show();
-            this.Hide();
+            using (var register = new RegisterForm())
+            {
+                register.ShowDialog(this);
+
+                if (register.ExitRequested)
+                {
+                    Close();
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(register.RegisteredUsername))
+                {
+                    login_username.Text = register.RegisteredUsername;
+                    login_password.Focus();
+                }
+            }
         }
 
         private void login_showPass_CheckedChanged(object sender, EventArgs e)
@@ -69,8 +86,8 @@ namespace EmployeeManagementSystem.Forms
 
                 UiMessage.Info("Login successfully!");
 
-                new MainForm().Show();
-                this.Hide();
+                LoginSucceeded = true;
+                Close();
             }
             catch (Exception ex)
             {

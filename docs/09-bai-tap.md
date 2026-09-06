@@ -61,33 +61,48 @@ thành `1.1.0.0`, build lại và xác nhận label đổi theo.
 
 ## Mức 2 — Hiểu cơ chế
 
-### Bài 3 · Sửa luồng đăng nhập / đăng xuất
+### Bài 3 · Đo lượng form bị rò rỉ (đã sửa sẵn)
 
 **Dùng:** [bài 01](01-winforms-hoat-dong-the-nao.md)
 
-Hiện tại `MainForm` gọi `Hide()` chứ không `Close()` khi đăng xuất, và mỗi lần lại tạo mới
-một `LoginForm`. Form cũ chỉ bị ẩn và vẫn nằm trong bộ nhớ — cứ đăng nhập/đăng xuất nhiều
-lần là chồng chất.
+Điều hướng đã được sửa sang vòng lặp phiên trong `Program.RunSessions`. Bài này là **đo
+đạc**, để bạn tự thấy vấn đề cũ có thật chứ không phải lý thuyết.
 
-Sửa lại theo mẫu chuẩn:
+Viết một chương trình nhỏ tham chiếu `EmployeeManagementSystem.exe`, chạy trên luồng STA:
 
-```mermaid
-flowchart LR
-    A["Program.Main"] --> B["LoginForm.ShowDialog()"]
-    B --> C{"DialogResult"}
-    C -->|OK| D["Application.Run(new MainForm())"]
-    C -->|Cancel| E["Thoát"]
-    D --> F{"Đăng xuất?"}
-    F -->|có| B
+```csharp
+var login = new LoginForm();
+login.Show();
 
-    style D fill:#e6f4ec,stroke:#7fb79a
+Form current = login;
+for (int i = 1; i <= 5; i++)
+{
+    Form next = current is LoginForm ? (Form)new RegisterForm() : new LoginForm();
+    next.Show();
+    current.Hide();          // mau CU
+    Application.DoEvents();
+    current = next;
+    Console.WriteLine("vong " + i + ": OpenForms = " + Application.OpenForms.Count);
+}
 ```
 
-**Gợi ý:** `LoginForm` đặt `this.DialogResult = DialogResult.OK` khi đăng nhập thành công.
-`Program.Main` dùng vòng lặp `while` để quay lại màn đăng nhập sau khi đăng xuất.
+**Câu hỏi:**
 
-**Kiểm chứng:** đăng nhập → đăng xuất → đăng nhập 5 lần. Mở Task Manager, số handle không
-được tăng dần.
+1. Sau 5 vòng, `Application.OpenForms.Count` bằng bao nhiêu? Vì sao?
+2. Đổi `current.Hide()` thành `current.Close()`. Con số đổi thế nào?
+3. Vì sao vòng lặp phiên dùng `using` chứ không chỉ `Close()`?
+
+<details>
+<summary>Đáp án</summary>
+
+1. **6.** Mỗi vòng thêm một form mới, còn form cũ chỉ bị ẩn nên vẫn nằm trong
+   `Application.OpenForms`.
+2. Về 1 — nhưng nếu form bị đóng là form đã truyền cho `Application.Run` thì ứng dụng
+   thoát luôn. Đó chính là lý do bản cũ dùng `Hide()`, và cũng là lý do nó rò rỉ.
+3. `Close()` giải phóng handle cửa sổ, nhưng với form **modal** (`ShowDialog`) .NET
+   không tự `Dispose` — bạn phải làm. `using` bảo đảm điều đó.
+
+</details>
 
 ---
 

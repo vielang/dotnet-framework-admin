@@ -29,15 +29,21 @@ namespace EmployeeManagementSystem.Forms
             get { return _injectedRepository ?? AppServices.Users; }
         }
 
+        /// <summary>True when the user asked to quit rather than go back to login.</summary>
+        public bool ExitRequested { get; private set; }
+
+        /// <summary>Set after a successful registration, so login can prefill the name.</summary>
+        public string RegisteredUsername { get; private set; }
+
         private void exit_Click(object sender, EventArgs e)
         {
-            Application.Exit();
+            ExitRequested = true;
+            Close();
         }
 
         private void signup_loginBtn_Click(object sender, EventArgs e)
         {
-            new LoginForm().Show();
-            this.Hide();
+            Close();        // back to the login window that opened this one
         }
 
         private void signup_showPass_CheckedChanged(object sender, EventArgs e)
@@ -68,8 +74,8 @@ namespace EmployeeManagementSystem.Forms
 
                 UiMessage.Info("Registered successfully!");
 
-                new LoginForm().Show();
-                this.Hide();
+                RegisteredUsername = username;
+                Close();
             }
             catch (Exception ex)
             {
