@@ -12,7 +12,7 @@ namespace EmployeeManagementSystem.Views
         public SalaryView()
         {
             InitializeComponent();
-            disableFields();
+            DisableFields();
         }
 
         protected override void LoadData()
@@ -22,7 +22,7 @@ namespace EmployeeManagementSystem.Views
                 "Id", "Image", "Status");
         }
 
-        public void disableFields()
+        private void DisableFields()
         {
             salary_employeeID.Enabled = false;
             salary_name.Enabled = false;
@@ -72,7 +72,7 @@ namespace EmployeeManagementSystem.Views
 
                 LoadData();
                 UiMessage.Info("Update successfully!");
-                clearFields();
+                ClearFields();
             }
             catch (Exception ex)
             {
@@ -80,7 +80,7 @@ namespace EmployeeManagementSystem.Views
             }
         }
 
-        public void clearFields()
+        private void ClearFields()
         {
             salary_employeeID.Text = "";
             salary_name.Text = "";
@@ -104,7 +104,7 @@ namespace EmployeeManagementSystem.Views
 
         private void salary_clearBtn_Click(object sender, EventArgs e)
         {
-            clearFields();
+            ClearFields();
         }
     }
 }

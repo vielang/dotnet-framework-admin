@@ -60,7 +60,7 @@ namespace EmployeeManagementSystem.Views
 
                 LoadData();
                 UiMessage.Info("Added successfully!");
-                clearFields();
+                ClearFields();
             }
             catch (Exception ex)
             {
@@ -94,7 +94,7 @@ namespace EmployeeManagementSystem.Views
 
                 LoadData();
                 UiMessage.Info("Updated successfully!");
-                clearFields();
+                ClearFields();
             }
             catch (Exception ex)
             {
@@ -128,7 +128,7 @@ namespace EmployeeManagementSystem.Views
 
                 LoadData();
                 UiMessage.Info("Deleted successfully!");
-                clearFields();
+                ClearFields();
             }
             catch (Exception ex)
             {
@@ -138,7 +138,7 @@ namespace EmployeeManagementSystem.Views
 
         private void addEmployee_clearBtn_Click(object sender, EventArgs e)
         {
-            clearFields();
+            ClearFields();
         }
 
         // ------------------------------------------------------------------- form
@@ -171,7 +171,7 @@ namespace EmployeeManagementSystem.Views
             };
         }
 
-        public void clearFields()
+        private void ClearFields()
         {
             addEmployee_id.Text = "";
             addEmployee_fullName.Text = "";
