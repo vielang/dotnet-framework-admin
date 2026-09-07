@@ -12,32 +12,21 @@ namespace EmployeeManagementSystem.Views
     /// <summary>Create, update and soft-delete employees.</summary>
     public partial class EmployeeView : DataView
     {
-        /// <summary>Where photo paths are stored relative to, and where new photos are copied.</summary>
-        private const string PictureFolderName = "Directory";
-
-        /// <summary>The photo path already stored for the selected employee, if any.</summary>
-        private string _storedPicturePath;
-
-        /// <summary>A file the user just picked with Import, not yet saved. Null when unchanged.</summary>
-        private string _importedPicturePath;
-
         /// <summary>
-        /// Folder that new photos are written into. Defaults to a folder beside the
-        /// executable; settable so a test does not have to write next to whatever
-        /// process happens to be hosting it.
+        /// A photo the user just picked with Import, held in memory until it is saved.
+        /// Null means the photo was not changed.
         ///
-        /// Writing beside the executable is the same bet AppLog deliberately refused
-        /// to make: if this application is ever installed under Program Files, an
-        /// ordinary user cannot create this folder and photos will not save. Storing
-        /// photos properly is finding F17.
+        /// Photos used to live in files beside the executable, with only the path in
+        /// the database. That only ever worked for one person on one machine, it broke
+        /// entirely if the application was installed somewhere an ordinary user cannot
+        /// write, and the row and the file could disagree. Migration V5 moved them into
+        /// a BLOB, so the picture now travels with the row.
         /// </summary>
-        internal string PictureDirectory { get; set; }
+        private byte[] _importedPhoto;
 
         public EmployeeView()
         {
             InitializeComponent();
-
-            PictureDirectory = Path.Combine(Application.StartupPath, PictureFolderName);
         }
 
         protected override void LoadData()
@@ -63,18 +52,13 @@ namespace EmployeeManagementSystem.Views
                     return;
                 }
 
-                employee.Image = PlannedPicturePath(employee.EmployeeId, null);
                 employee.Salary = 0;
 
-                // Database first. Only once the row exists does the photo get copied,
-                // so a rejected insert never leaves a file behind.
-                Employees.Add(employee);
-
-                if (!TryCommitPicture(employee.EmployeeId))
-                {
-                    UiMessage.Warn("The employee was saved, but the photo could not be stored.");
-                    ClearStoredImage(employee.EmployeeId);
-                }
+                // The photo is part of the same INSERT, so the row and its picture
+                // cannot end up disagreeing. Ordering the two writes was the best that
+                // could be done while the photo lived in a file; now there is only one
+                // write to get right.
+                Employees.Add(employee, _importedPhoto);
 
                 LoadData();
                 UiMessage.Info("Added successfully!");
@@ -102,20 +86,17 @@ namespace EmployeeManagementSystem.Views
 
             try
             {
-                employee.Image = PlannedPicturePath(employee.EmployeeId, _storedPicturePath);
-
                 if (Employees.Update(employee) == 0)
                 {
-                    // Nothing was written, so nothing on disk has been touched either -
-                    // the existing photo survives.
                     UiMessage.Warn("No employee found with ID " + employee.EmployeeId + ".");
                     return;
                 }
 
-                if (!TryCommitPicture(employee.EmployeeId))
+                // Only touch the photo when the user actually chose a new one, so
+                // editing a phone number never disturbs the picture.
+                if (_importedPhoto != null)
                 {
-                    UiMessage.Warn("The employee was saved, but the photo could not be stored.");
-                    ClearStoredImage(employee.EmployeeId);
+                    Employees.SetPhoto(employee.EmployeeId, _importedPhoto);
                 }
 
                 LoadData();
@@ -207,8 +188,7 @@ namespace EmployeeManagementSystem.Views
             addEmployee_status.SelectedIndex = -1;
 
             SetPicture(null);
-            _storedPicturePath = null;
-            _importedPicturePath = null;
+            _importedPhoto = null;
         }
 
         private void dataGridView1_CellClick(object sender, DataGridViewCellEventArgs e)
@@ -226,9 +206,8 @@ namespace EmployeeManagementSystem.Views
             addEmployee_position.Text = employee.Position;
             addEmployee_status.Text = employee.Status;
 
-            _storedPicturePath = employee.Image;
-            _importedPicturePath = null;      // selecting a row discards an unsaved import
-            ShowPicture(employee.Image);
+            _importedPhoto = null;            // selecting a row discards an unsaved import
+            ShowPhotoFor(employee);
         }
 
         private void addEmployee_importBtn_Click(object sender, EventArgs e)
@@ -244,11 +223,26 @@ namespace EmployeeManagementSystem.Views
 
                 try
                 {
-                    using (var stream = new FileStream(dialog.FileName, FileMode.Open, FileAccess.Read))
+                    var file = new FileInfo(dialog.FileName);
+                    if (file.Length > MaxPhotoBytes)
                     {
-                        SetPicture(Image.FromStream(stream));
+                        UiMessage.Warn(
+                            "That picture is " + (file.Length / 1024 / 1024) + " MB. "
+                            + "Please choose one under " + (MaxPhotoBytes / 1024 / 1024) + " MB.");
+                        return;
                     }
-                    _importedPicturePath = dialog.FileName;
+
+                    byte[] bytes = File.ReadAllBytes(dialog.FileName);
+                    Image image = ToImage(bytes);
+
+                    if (image == null)
+                    {
+                        UiMessage.Warn("That file is not a picture this application can read.");
+                        return;
+                    }
+
+                    SetPicture(image);
+                    _importedPhoto = bytes;   // saved with the next Add or Update
                 }
                 catch (Exception ex)
                 {
@@ -257,45 +251,57 @@ namespace EmployeeManagementSystem.Views
             }
         }
 
-        // ---------------------------------------------------------------- pictures
+        // ---------------------------------------------------------------- photos
 
         /// <summary>
-        /// Turns a stored photo path into one that can actually be opened.
-        ///
-        /// Rows written by this application store a path relative to the executable
-        /// ("Directory\EMID-01.jpg"). A bare relative path is resolved against the
-        /// *current working directory*, which is not necessarily where the .exe lives -
-        /// launching from a shortcut with a different "Start in" was enough to make
-        /// every photo disappear. Older rows may still hold an absolute path, so both
-        /// are accepted.
+        /// The largest photo this application will store. Without a ceiling, a user
+        /// picking a 40 MB camera file would put 40 MB into every row read and every
+        /// backup of the table.
         /// </summary>
-        private static string ResolvePicturePath(string stored)
+        private const int MaxPhotoBytes = 2 * 1024 * 1024;
+
+        /// <summary>Shows the photo held for this employee, fetching it only now.</summary>
+        private void ShowPhotoFor(Employee employee)
         {
-            if (string.IsNullOrWhiteSpace(stored))
-            {
-                return null;
-            }
-
-            return Path.IsPathRooted(stored)
-                ? stored
-                : Path.Combine(Application.StartupPath, stored);
-        }
-
-        /// <summary>Loads a photo without leaving the file locked. Missing files clear the box.</summary>
-        private void ShowPicture(string storedPath)
-        {
-            string full = ResolvePicturePath(storedPath);
-
-            if (full == null || !File.Exists(full))
+            if (!employee.HasPhoto)
             {
                 SetPicture(null);
                 return;
             }
 
-            // Read through a stream so the file itself is not left locked.
-            using (var stream = new FileStream(full, FileMode.Open, FileAccess.Read))
+            try
             {
-                SetPicture(Image.FromStream(stream));
+                byte[] photo = Employees.GetPhoto(employee.EmployeeId);
+                SetPicture(ToImage(photo));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Could not read the photo for {EmployeeId}.", employee.EmployeeId);
+                SetPicture(null);
+            }
+        }
+
+        /// <summary>
+        /// Turns stored bytes into an Image, or null when they are not a picture.
+        ///
+        /// The MemoryStream is deliberately not disposed: GDI+ reads from the stream
+        /// lazily, so an Image built from a disposed stream throws the moment it is
+        /// drawn. The stream is collected with the Image.
+        /// </summary>
+        private static Image ToImage(byte[] bytes)
+        {
+            if (bytes == null || bytes.Length == 0)
+            {
+                return null;
+            }
+
+            try
+            {
+                return Image.FromStream(new MemoryStream(bytes));
+            }
+            catch (ArgumentException)
+            {
+                return null;        // stored bytes are not an image the framework knows
             }
         }
 
@@ -314,88 +320,6 @@ namespace EmployeeManagementSystem.Views
             if (previous != null && !ReferenceEquals(previous, image))
             {
                 previous.Dispose();
-            }
-        }
-
-        /// <summary>
-        /// Works out what belongs in the employee's image column, copying the file in
-        /// when the user imported one.
-        /// </summary>
-        /// <param name="existingPath">
-        /// What is already stored for this employee, kept when nothing was imported.
-        /// Adding a new employee passes null: a new person does not inherit the photo
-        /// of whichever row happened to be selected in the grid.
-        /// </param>
-        private string PlannedPicturePath(string employeeId, string existingPath)
-        {
-            if (string.IsNullOrEmpty(_importedPicturePath))
-            {
-                return existingPath;            // nothing was imported: leave it alone
-            }
-
-            // Stored relative, so the application keeps working if the folder moves.
-            return Path.Combine(PictureFolderName, employeeId + ".jpg");
-        }
-
-        /// <summary>
-        /// Copies the imported photo into place. Call this only once the database write
-        /// has succeeded.
-        ///
-        /// A file cannot take part in a database transaction, so the two are ordered
-        /// instead: the database first, the file second. The copy overwrites, and it
-        /// used to run *before* the UPDATE - so an update that changed no rows (someone
-        /// else had deleted the employee) destroyed the old photo and changed nothing
-        /// in the database. Doing the database first means a failure there leaves the
-        /// photo exactly as it was.
-        /// </summary>
-        /// <returns>True when there was nothing to do, or the photo was stored.</returns>
-        private bool TryCommitPicture(string employeeId)
-        {
-            if (string.IsNullOrEmpty(_importedPicturePath))
-            {
-                return true;                    // nothing was imported
-            }
-
-            string target = Path.Combine(PictureDirectory, employeeId + ".jpg");
-
-            try
-            {
-                Directory.CreateDirectory(PictureDirectory);
-                File.Copy(_importedPicturePath, target, true);
-                Log.Information("Stored the photo for {EmployeeId}.", employeeId);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                // Deliberately no MessageBox here. A helper that does I/O and also puts
-                // a modal dialog on screen cannot be tested without hanging, and it is
-                // the same mistake the data layer used to make. The caller reports.
-                Log.Error(ex, "Saved {EmployeeId} but could not store the photo.", employeeId);
-                return false;
-            }
-        }
-
-        /// <summary>Compensating write: the row must not claim a photo that is not there.</summary>
-        private void ClearStoredImage(string employeeId)
-        {
-            try
-            {
-                Employee stored = Employees.GetAll()
-                    .FirstOrDefault(e => e.EmployeeId == employeeId);
-
-                if (stored == null || stored.Image == null)
-                {
-                    return;
-                }
-
-                stored.Image = null;
-                Employees.Update(stored);
-            }
-            catch (Exception ex)
-            {
-                // Nothing further to try. The application already tolerates a missing
-                // photo file, so this is untidy rather than broken.
-                Log.Error(ex, "Could not clear the photo path for {EmployeeId}.", employeeId);
             }
         }
     }

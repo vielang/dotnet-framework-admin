@@ -301,11 +301,11 @@ Toàn bộ danh sách hạng mục còn lại nằm trong kế hoạch cải ti�
 
 | Mã | Nội dung | Vì sao đáng làm |
 |----|----------|-----------------|
-| F6 | Transaction | Copy ảnh và `INSERT` hiện không nguyên tử |
+| F6 | Transaction | Mỗi lệnh ghi hiện chỉ có một câu SQL, nên chưa cần — sẽ cần khi có thao tác nhiều bước |
 | F7 | Kiểm soát tương tranh | Người lưu sau ghi đè người lưu trước, không ai biết |
 | F8 | Log thật (Serilog) | `Debug.WriteLine` biến mất trong bản Release |
 | F11 | `async` cho truy vấn | Chống đơ giao diện — xem bài tập 6 |
-| F17 | Ảnh lưu trong DB | Đường dẫn cục bộ vô nghĩa với máy thứ hai |
+| ~~F17~~ | ~~Ảnh lưu trong DB~~ | **Đã xong** — migration V5 chuyển ảnh thành BLOB |
 
 Tất cả những mục trên đều làm được **trên .NET Framework 4.7.2**, không cần nâng cấp
 runtime. `async`/`await` có từ .NET Framework 4.5, và Serilog cũng hỗ trợ.

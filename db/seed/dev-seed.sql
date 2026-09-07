@@ -31,14 +31,14 @@ VALUES ('admin', TRUNC(SYSDATE),
         'iPAtEAXdxIXTjBCJVp7peA==',
         120000);
 
-INSERT INTO employees (employee_id, full_name, gender, contact_number, position, image, salary, insert_date, status)
-VALUES ('EMID-01', 'Nguyen Van A', 'Male', '0900000001', 'Developer', 'Directory\EMID-01.jpg', 1500, TRUNC(SYSDATE), 'Active');
+INSERT INTO employees (employee_id, full_name, gender, contact_number, position, salary, insert_date, status)
+VALUES ('EMID-01', 'Nguyen Van A', 'Male', '0900000001', 'Developer', 1500, TRUNC(SYSDATE), 'Active');
 
-INSERT INTO employees (employee_id, full_name, gender, contact_number, position, image, salary, insert_date, status)
-VALUES ('EMID-02', 'Tran Thi B', 'Female', '0900000002', 'Manager', NULL, 2500, TRUNC(SYSDATE), 'Active');
+INSERT INTO employees (employee_id, full_name, gender, contact_number, position, salary, insert_date, status)
+VALUES ('EMID-02', 'Tran Thi B', 'Female', '0900000002', 'Manager', 2500, TRUNC(SYSDATE), 'Active');
 
-INSERT INTO employees (employee_id, full_name, gender, contact_number, position, image, salary, insert_date, status)
-VALUES ('EMID-03', 'Le Van C', 'Male', '0900000003', 'Designer', NULL, 1200, TRUNC(SYSDATE), 'Inactive');
+INSERT INTO employees (employee_id, full_name, gender, contact_number, position, salary, insert_date, status)
+VALUES ('EMID-03', 'Le Van C', 'Male', '0900000003', 'Designer', 1200, TRUNC(SYSDATE), 'Inactive');
 
 COMMIT;
 

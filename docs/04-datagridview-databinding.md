@@ -30,7 +30,7 @@ flowchart LR
         P4["string Gender"]
         P5["string ContactNumber"]
         P6["string Position"]
-        P7["string Image"]
+        P7["bool HasPhoto"]
         P8["int Salary"]
         P9["string Status"]
     end
@@ -112,7 +112,7 @@ private void dataGridView1_CellClick(object sender, DataGridViewCellEventArgs e)
     addEmployee_position.Text    = employee.Position;
     addEmployee_status.Text      = employee.Status;
 
-    ShowPicture(employee.Image);
+    ShowPhotoFor(employee);
 }
 ```
 
@@ -131,16 +131,85 @@ số.
 > `e.RowIndex == -1` nghĩa là người dùng click vào **header**. Luôn phải kiểm tra — đây là
 > nguồn `IndexOutOfRangeException` kinh điển.
 
-## Ảnh: hai cái bẫy của `PictureBox`
+## Ảnh: lưu ở đâu, và cái bẫy của `PictureBox`
 
-Dòng `ShowPicture(employee.Image)` ở trên trông vô hại, nhưng chứa hai bẫy mà dự án này
-đã dính cả hai.
+Dòng `ShowPhotoFor(employee)` ở trên trông vô hại. Đằng sau nó là một quyết định thiết kế
+và một cái bẫy của WinForms.
 
-### Bẫy 1 — `PictureBox` không tự giải phóng ảnh cũ
+### Ảnh nằm trong database, không phải trong file
 
-Gán `pictureBox.Image = anhMoi` **không** giải phóng ảnh đang giữ. `Image` là đối tượng
-bọc bộ nhớ GDI+ không được quản lý bởi garbage collector theo cách thông thường. Mỗi lần
-người dùng bấm một dòng, một bitmap bị bỏ rơi.
+Lúc đầu dự án lưu ảnh thành file cạnh `.exe`, còn database chỉ giữ **đường dẫn**
+(`Directory\EMID-01.jpg`). Cách đó hỏng theo ba kiểu khác nhau:
+
+```mermaid
+flowchart TB
+    subgraph BAD["❌ Database giữ đường dẫn, ảnh nằm trong file"]
+        direction TB
+        X1["Người thứ hai mở cùng nhân viên"] --> X2["File nằm trên đĩa người khác<br/>→ ô ảnh trống"]
+        X3["Cài app vào Program Files"] --> X4["Người dùng thường không được ghi<br/>→ không lưu được ảnh"]
+        X5["Ghi DB xong, copy file lỗi"] --> X6["Hàng trỏ tới file không tồn tại"]
+    end
+
+    subgraph GOOD["✓ Ảnh là BLOB trong chính hàng đó"]
+        direction TB
+        Y1["Ảnh đi cùng hàng dữ liệu"] --> Y2["Ai đọc hàng cũng thấy ảnh"]
+        Y3["Không đụng tới filesystem"] --> Y4["Không phụ thuộc quyền ghi"]
+        Y5["Cùng một câu INSERT"] --> Y6["Không thể lệch nhau"]
+    end
+
+    style BAD fill:#ffe9e6,stroke:#d98b84
+    style GOOD fill:#e6f4ec,stroke:#7fb79a
+```
+
+Điểm thứ ba đáng dừng lại. Khi ảnh còn nằm trong file, **không có cách nào làm cho hàng dữ
+liệu và file ảnh cùng thành công hoặc cùng thất bại** — file không thể tham gia transaction
+của database. Tốt nhất chỉ có thể *sắp thứ tự*: ghi database trước, copy file sau, và chấp
+nhận một khe hở. Chuyển ảnh vào BLOB làm khe hở đó **biến mất**, vì giờ chỉ còn **một** lệnh
+ghi:
+
+```sql
+INSERT INTO employees (employee_id, full_name, ..., photo, ...)
+VALUES (:employeeId, :fullName, ..., :photo, ...)
+```
+
+### Đừng SELECT cái BLOB khi không cần
+
+Ảnh có thể tới vài MB. Lưới chỉ hiện một dấu tích "có ảnh", không hiện ảnh — nên kéo cả
+BLOB về cho mỗi dòng là chuyển hàng MB để vẽ một dấu tích.
+
+```sql
+-- danh sach: chi hoi CO hay KHONG
+CASE WHEN photo IS NULL THEN 0 ELSE 1 END AS has_photo
+
+-- va mot cau rieng, chi cho nhan vien nguoi dung vua bam vao
+SELECT photo FROM employees WHERE employee_id = :employeeId
+```
+
+Model vì thế có `bool HasPhoto` chứ **không** có `byte[] Photo`: một property mà lúc có
+lúc không được nạp là thứ rất dễ dùng sai.
+
+### Cạm bẫy Oracle: `byte[]` không tự thành BLOB
+
+Đây là chỗ mất thời gian nếu không biết trước. Để ODP.NET tự suy kiểu, nó chọn **`Raw`**
+cho một mảng byte — mà `Raw` **dừng ở 2000 byte**. Ảnh thật 87 KB sẽ hỏng với
+`ORA-01460` chứ không được lưu.
+
+```csharp
+// Data/OracleParams.cs
+public OracleParams SetBlob(string name, byte[] value)
+{
+    return Add(name, value, OracleDbType.Blob);
+}
+```
+
+Với ảnh `null` còn tệ hơn: `DBNull` **không mang kiểu gì cả**, nên driver không có gì để
+suy. Vì thế `SetBlob` khai báo kiểu tường minh thay vì để đoán.
+
+### Cái bẫy của `PictureBox`
+
+Gán `pictureBox.Image = anhMoi` **không** giải phóng ảnh đang giữ. `Image` bọc bộ nhớ GDI+
+không do garbage collector quản lý theo cách thông thường, nên mỗi lần bấm một dòng là một
+bitmap bị bỏ rơi.
 
 ```csharp
 // Views/EmployeeView.cs
@@ -157,49 +226,21 @@ private void SetPicture(Image image)
 ```
 
 Kiểm tra `ReferenceEquals` là cần thiết: gán lại chính ảnh đang hiển thị rồi `Dispose` nó
-sẽ để lại một `PictureBox` trỏ vào đối tượng đã huỷ, và lần vẽ tiếp theo ném
-`ArgumentException`.
+sẽ để `PictureBox` trỏ vào đối tượng đã huỷ, và lần vẽ tiếp theo ném `ArgumentException`.
 
-### Bẫy 2 — đường dẫn tương đối không tính từ nơi bạn nghĩ
-
-Cột `image` lưu chuỗi như `Directory\EMID-01.jpg`. Nhưng `File.Exists("Directory\...")`
-giải theo **thư mục làm việc hiện tại**, không phải nơi đặt file `.exe`. Chạy app từ một
-shortcut có "Start in" khác là mọi ảnh biến mất.
-
-```mermaid
-flowchart TD
-    A["Cột image:<br/><code>Directory\EMID-01.jpg</code>"] --> B{"Đường dẫn tuyệt đối?"}
-    B -->|Có| C["Dùng nguyên"]
-    B -->|Không| D["Ghép với<br/><code>Application.StartupPath</code>"]
-    D --> E["Luôn trỏ đúng chỗ<br/>dù CWD là gì"]
-    C --> E
-
-    F["❌ File.Exists(stored)<br/><i>giải theo CWD</i>"] -.cách sai.-> G["Ảnh biến mất<br/>khi CWD khác"]
-
-    style E fill:#e6f4ec,stroke:#7fb79a
-    style G fill:#ffe9e6,stroke:#d98b84
-```
+Và một chi tiết dễ sai khi dựng ảnh từ byte:
 
 ```csharp
-private static string ResolvePicturePath(string stored)
+private static Image ToImage(byte[] bytes)
 {
-    if (string.IsNullOrWhiteSpace(stored))
-    {
-        return null;
-    }
-
-    return Path.IsPathRooted(stored)
-        ? stored
-        : Path.Combine(Application.StartupPath, stored);
+    ...
+    return Image.FromStream(new MemoryStream(bytes));   // KHONG dispose stream
 }
 ```
 
-Nhận cả hai dạng vì dữ liệu cũ có thể đã lưu đường dẫn tuyệt đối. Khi **ghi**, ứng dụng
-luôn lưu dạng tương đối, để cả thư mục di chuyển được mà không hỏng.
-
-> **Bài học rộng hơn:** đường dẫn tương đối trong dữ liệu là một quả bom hẹn giờ, vì
-> "tương đối với cái gì" không nằm trong chính chuỗi đó. Hoặc lưu tuyệt đối, hoặc quy định
-> rõ gốc và luôn giải theo gốc đó — đừng phó mặc cho `Environment.CurrentDirectory`.
+`MemoryStream` **cố ý không** được `using`. GDI+ đọc từ stream một cách lười, nên một
+`Image` dựng từ stream đã đóng sẽ ném ngoại lệ đúng lúc nó được vẽ — chứ không phải lúc
+bạn tạo nó. Stream được thu hồi cùng với `Image`.
 
 ## Ẩn cột và đổi tiêu đề
 
@@ -210,7 +251,7 @@ flowchart TB
     E["List&lt;Employee&gt;<br/>9 property"]
     E --> B["EmployeeGrid.Bind(grid, list, ...hiddenColumns)"]
     B --> V1["<b>EmployeeView</b><br/>hiện đủ 9 cột"]
-    B --> V2["<b>SalaryView</b><br/>ẩn Id, Image, Status<br/>→ còn 6 cột"]
+    B --> V2["<b>SalaryView</b><br/>ẩn Id, HasPhoto, Status<br/>→ còn 6 cột"]
 
     style V1 fill:#eef4ff,stroke:#9bb8e8
     style V2 fill:#eefaf3,stroke:#8fcfae
@@ -245,7 +286,7 @@ EmployeeGrid.Bind(dataGridView1, Employees.GetAll());
 
 // SalaryView — chỉ những gì liên quan tới lương
 EmployeeGrid.Bind(dataGridView1, Employees.GetByStatus(EmployeeStatus.Active),
-                  "Id", "Image", "Status");
+                  "Id", "HasPhoto", "Status");
 ```
 
 Ẩn cột bằng **tên** (`column.Name`), không phải chỉ số — cùng lý do như trên.

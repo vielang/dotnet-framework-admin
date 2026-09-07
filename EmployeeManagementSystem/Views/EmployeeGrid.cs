@@ -22,7 +22,7 @@ namespace EmployeeManagementSystem.Views
                 { "Gender", "Gender" },
                 { "ContactNumber", "Contact Number" },
                 { "Position", "Position" },
-                { "Image", "Image" },
+                { "HasPhoto", "Photo" },
                 { "Salary", "Salary" },
                 { "Status", "Status" },
             };

@@ -6,6 +6,12 @@
   Bind variables use Oracle ":name" syntax and are supplied through OracleParams,
   which forces BindByName so the order here does not matter.
 
+  Note what the list queries do NOT select: the photo. It is a BLOB of up to a
+  couple of megabytes, and the grid never shows the image itself - fetching one
+  per row to display a tick box would move megabytes to draw nothing. They select
+  whether a photo exists; SelectPhoto fetches the bytes for the one employee the
+  user actually clicked on.
+
   This file is copied next to the executable, so a statement can be fixed without
   rebuilding the application.
 -->
@@ -18,7 +24,7 @@
            gender,
            contact_number,
            position,
-           image,
+           CASE WHEN photo IS NULL THEN 0 ELSE 1 END AS has_photo,
            salary,
            status
     FROM   employees
@@ -33,13 +39,20 @@
            gender,
            contact_number,
            position,
-           image,
+           CASE WHEN photo IS NULL THEN 0 ELSE 1 END AS has_photo,
            salary,
            status
     FROM   employees
     WHERE  delete_date IS NULL
     AND    status = :status
     ORDER  BY id
+  </statement>
+
+  <statement id="SelectPhoto">
+    SELECT photo
+    FROM   employees
+    WHERE  employee_id = :employeeId
+    AND    delete_date IS NULL
   </statement>
 
   <statement id="CountAll">
@@ -68,7 +81,7 @@
                            gender,
                            contact_number,
                            position,
-                           image,
+                           photo,
                            salary,
                            insert_date,
                            status)
@@ -77,7 +90,7 @@
             :gender,
             :contactNumber,
             :position,
-            :image,
+            :photo,
             :salary,
             :insertDate,
             :status)
@@ -89,9 +102,16 @@
            gender         = :gender,
            contact_number = :contactNumber,
            position       = :position,
-           image          = :image,
            status         = :status,
            update_date    = :updateDate
+    WHERE  employee_id = :employeeId
+    AND    delete_date IS NULL
+  </statement>
+
+  <statement id="UpdatePhoto">
+    UPDATE employees
+    SET    photo       = :photo,
+           update_date = :updateDate
     WHERE  employee_id = :employeeId
     AND    delete_date IS NULL
   </statement>

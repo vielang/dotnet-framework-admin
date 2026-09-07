@@ -19,7 +19,7 @@ namespace EmployeeManagementSystem.Views
         {
             EmployeeGrid.Bind(dataGridView1,
                 Employees.GetByStatus(EmployeeStatus.Active),
-                "Id", "Image", "Status");
+                "Id", "HasPhoto", "Status");
         }
 
         private void DisableFields()

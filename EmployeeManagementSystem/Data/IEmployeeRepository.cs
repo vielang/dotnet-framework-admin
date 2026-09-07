@@ -19,7 +19,18 @@ namespace EmployeeManagementSystem.Data
         /// <summary>True when a non-deleted employee already uses this business id.</summary>
         bool ExistsByEmployeeId(string employeeId);
 
-        void Add(Employee employee);
+        /// <summary>
+        /// Creates the employee. The photo is written by the same INSERT, so the row
+        /// and its picture cannot disagree - null means no photo.
+        /// </summary>
+        void Add(Employee employee, byte[] photo);
+
+        /// <summary>The photo bytes, or null when this employee has none.</summary>
+        byte[] GetPhoto(string employeeId);
+
+        /// <summary>Replaces the photo. Passing null removes it.</summary>
+        /// <returns>Number of rows changed.</returns>
+        int SetPhoto(string employeeId, byte[] photo);
 
         /// <summary>Updates the editable profile fields, matched on <see cref="Employee.EmployeeId"/>.</summary>
         /// <returns>Number of rows changed.</returns>

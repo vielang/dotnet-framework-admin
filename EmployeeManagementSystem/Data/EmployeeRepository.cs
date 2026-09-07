@@ -73,7 +73,7 @@ namespace EmployeeManagementSystem.Data
             }
         }
 
-        public void Add(Employee employee)
+        public void Add(Employee employee, byte[] photo)
         {
             if (employee == null) throw new ArgumentNullException("employee");
 
@@ -92,14 +92,14 @@ namespace EmployeeManagementSystem.Data
                             .Set("gender", employee.Gender)
                             .Set("contactNumber", employee.ContactNumber)
                             .Set("position", employee.Position)
-                            .Set("image", employee.Image)
+                            .SetBlob("photo", photo)
                             .Set("salary", employee.Salary)
                             .Set("insertDate", DateTime.Today)
                             .Set("status", employee.Status));
                 }
 
-                Log.Information("Added employee {EmployeeId} ({Status}).",
-                    employee.EmployeeId, employee.Status);
+                Log.Information("Added employee {EmployeeId} ({Status}), photo {Bytes} byte(s).",
+                    employee.EmployeeId, employee.Status, photo == null ? 0 : photo.Length);
             }
             catch (OracleException ex)
             {
@@ -122,7 +122,6 @@ namespace EmployeeManagementSystem.Data
                             .Set("gender", employee.Gender)
                             .Set("contactNumber", employee.ContactNumber)
                             .Set("position", employee.Position)
-                            .Set("image", employee.Image)
                             .Set("status", employee.Status)
                             .Set("updateDate", DateTime.Today)
                             .Set("employeeId", employee.EmployeeId));
@@ -160,6 +159,41 @@ namespace EmployeeManagementSystem.Data
             catch (OracleException ex)
             {
                 throw Translate(ex, "The salary for employee '" + employeeId + "'");
+            }
+        }
+
+        public byte[] GetPhoto(string employeeId)
+        {
+            using (IDbConnection connection = _connections.Create())
+            {
+                // Fetched only for the employee the user selected, never for a list.
+                return connection.ExecuteScalar<byte[]>(
+                    _sql.Get("Employee.SelectPhoto"),
+                    OracleParams.New().Set("employeeId", employeeId));
+            }
+        }
+
+        public int SetPhoto(string employeeId, byte[] photo)
+        {
+            try
+            {
+                using (IDbConnection connection = _connections.Create())
+                {
+                    int rows = connection.Execute(
+                        _sql.Get("Employee.UpdatePhoto"),
+                        OracleParams.New()
+                            .SetBlob("photo", photo)
+                            .Set("updateDate", DateTime.Today)
+                            .Set("employeeId", employeeId));
+
+                    Log.Information("Set photo of {EmployeeId} to {Bytes} byte(s), {Rows} row(s).",
+                        employeeId, photo == null ? 0 : photo.Length, rows);
+                    return rows;
+                }
+            }
+            catch (OracleException ex)
+            {
+                throw Translate(ex, "The photo for employee '" + employeeId + "'");
             }
         }
 

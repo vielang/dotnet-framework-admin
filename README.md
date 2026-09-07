@@ -28,7 +28,7 @@
 # 📚 Learning the codebase
 
 New to WinForms, or new to this project? **[docs/](docs/README.md)** teaches WinForms
-.NET Framework by dissecting this codebase — nine lessons with Mermaid diagrams, real code
+.NET Framework by dissecting this codebase — eleven lessons with Mermaid diagrams, real code
 quotations, and exercises.
 
 It covers the message loop, `.Designer.cs` and `.resx`, the control lifecycle (including
@@ -124,7 +124,7 @@ vstest.console.exe EmployeeManagementSystem.Tests\bin\Debug\net472\EmployeeManag
 `.csproj` and the dotnet CLI only builds SDK-style projects. Build with MSBuild and run
 with `vstest.console.exe` (or just use the Test Explorer in Visual Studio).
 
-84 tests, in four kinds:
+88 tests, in five kinds:
 
 | Kind                  | Needs a database | What it protects                                              |
 |-----------------------|------------------|---------------------------------------------------------------|
@@ -157,6 +157,21 @@ The schema, not just the UI, now rejects bad data:
 | `status` is `Active` or `Inactive`          | `CK_EMPLOYEES_STATUS`            | V3        |
 | `salary >= 0`                               | `CK_EMPLOYEES_SALARY`            | V3        |
 | a credential is complete or absent, never half-written | `CK_USERS_PASSWORD_COMPLETE` | V4 |
+
+Migration **V5** moved employee photos out of files beside the executable and into a
+`BLOB` on the row. Three problems went away at once: a second user now sees the photo
+(it is no longer on somebody else's disk), the application no longer needs write access
+next to its own executable, and the photo is written by the same `INSERT` that creates
+the employee — so the row and its picture cannot disagree. A file could never take part
+in a database transaction; a column can.
+
+The list queries select `CASE WHEN photo IS NULL THEN 0 ELSE 1 END`, not the bytes:
+the grid shows a tick, and fetching a few megabytes per row to draw it would be waste.
+`GetPhoto` fetches the image for the one employee that was clicked.
+
+> **Upgrading an existing database:** V5 drops the old `image` column. SQL cannot read a
+> file off the disk, so paths are not converted — photos must be imported again through
+> the application. The files themselves are untouched in the `Directory` folder.
 
 The uniqueness index is function-based:
 

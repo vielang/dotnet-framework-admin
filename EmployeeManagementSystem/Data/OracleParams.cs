@@ -16,8 +16,14 @@ namespace EmployeeManagementSystem.Data
     /// </summary>
     public sealed class OracleParams : SqlMapper.IDynamicParameters
     {
-        private readonly List<KeyValuePair<string, object>> _values =
-            new List<KeyValuePair<string, object>>();
+        private sealed class Entry
+        {
+            public string Name;
+            public object Value;
+            public OracleDbType? Type;      // null means "let ODP.NET work it out"
+        }
+
+        private readonly List<Entry> _values = new List<Entry>();
 
         public static OracleParams New()
         {
@@ -27,12 +33,36 @@ namespace EmployeeManagementSystem.Data
         /// <summary>Binds ":name" to <paramref name="value"/> (null becomes DBNull).</summary>
         public OracleParams Set(string name, object value)
         {
+            return Add(name, value, null);
+        }
+
+        /// <summary>
+        /// Binds a BLOB, including a null one.
+        ///
+        /// The type has to be stated. Left to infer, ODP.NET picks Raw for a byte
+        /// array, and Raw stops at 2000 bytes - so a photo of any real size fails with
+        /// ORA-01460 instead of being stored. A null is worse still: DBNull carries no
+        /// type at all, so the driver has nothing to infer from.
+        /// </summary>
+        public OracleParams SetBlob(string name, byte[] value)
+        {
+            return Add(name, value, OracleDbType.Blob);
+        }
+
+        private OracleParams Add(string name, object value, OracleDbType? type)
+        {
             if (string.IsNullOrWhiteSpace(name))
             {
                 throw new ArgumentException("Parameter name is required.", "name");
             }
 
-            _values.Add(new KeyValuePair<string, object>(name.TrimStart(':'), value ?? DBNull.Value));
+            _values.Add(new Entry
+            {
+                Name = name.TrimStart(':'),
+                Value = value ?? DBNull.Value,
+                Type = type,
+            });
+
             return this;
         }
 
@@ -44,11 +74,18 @@ namespace EmployeeManagementSystem.Data
                 oracleCommand.BindByName = true;
             }
 
-            foreach (KeyValuePair<string, object> value in _values)
+            foreach (Entry entry in _values)
             {
                 IDbDataParameter parameter = command.CreateParameter();
-                parameter.ParameterName = value.Key;
-                parameter.Value = value.Value;
+                parameter.ParameterName = entry.Name;
+                parameter.Value = entry.Value;
+
+                var oracleParameter = parameter as OracleParameter;
+                if (oracleParameter != null && entry.Type.HasValue)
+                {
+                    oracleParameter.OracleDbType = entry.Type.Value;
+                }
+
                 command.Parameters.Add(parameter);
             }
         }
