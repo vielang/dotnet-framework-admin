@@ -9,7 +9,7 @@ Quy tắc chung: **làm xong bài nào cũng phải chạy được bộ test.**
 
 ```powershell
 msbuild EmployeeManagementSystem.sln -p:Configuration=Debug -warnaserror
-vstest.console.exe EmployeeManagementSystem.Tests\bin\Debug\net472\EmployeeManagementSystem.Tests.dll
+vstest.console.exe EmployeeManagementSystem.Tests\bin\Debug\net48\EmployeeManagementSystem.Tests.dll
 ```
 
 ---
@@ -307,10 +307,11 @@ Toàn bộ danh sách hạng mục còn lại nằm trong kế hoạch cải ti�
 | F11 | `async` cho truy vấn | Chống đơ giao diện — xem bài tập 6 |
 | ~~F17~~ | ~~Ảnh lưu trong DB~~ | **Đã xong** — migration V5 chuyển ảnh thành BLOB |
 
-Tất cả những mục trên đều làm được **trên .NET Framework 4.7.2**, không cần nâng cấp
+Tất cả những mục trên đều làm được **trên .NET Framework 4.8**, không cần nâng cấp
 runtime. `async`/`await` có từ .NET Framework 4.5, và Serilog cũng hỗ trợ.
 
-> Dự án chủ động **giữ nguyên WinForms trên .NET Framework 4.7.2**. Việc nâng lên .NET 8/9
+> Dự án chủ động **giữ nguyên WinForms trên .NET Framework**, nay là 4.8 — bản cuối cùng
+> của dòng này. Việc nâng lên .NET 8/9
 > và việc tách một tầng Web API đã được đưa ra khỏi kế hoạch — không phải vì chúng sai, mà
 > vì mục tiêu ở đây là học và làm WinForms.
 

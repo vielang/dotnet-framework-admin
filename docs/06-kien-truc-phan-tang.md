@@ -203,7 +203,7 @@ bởi phiên bản .NET. Dù chạy trên .NET 8/9 thì `UserControl` vẫn cầ
 tham số để designer vẽ được.
 
 Nếu muốn DI thật mà vẫn giữ .NET Framework, `Microsoft.Extensions.DependencyInjection`
-chạy được trên 4.7.2. Mẫu thường dùng là để `Program.Main` dựng container rồi cho form
+chạy được trên 4.8. Mẫu thường dùng là để `Program.Main` dựng container rồi cho form
 lấy phụ thuộc từ đó — vẫn là một dạng service locator ở biên giao diện, chỉ khác chỗ ai
 quản lý vòng đời đối tượng.
 

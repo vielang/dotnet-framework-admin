@@ -95,7 +95,7 @@ Chi tiết về database và kiến trúc nằm ở [README gốc](../README.md)
 
 ## Một lưu ý thành thật về công nghệ
 
-Dự án này dùng **.NET Framework 4.7.2**, bản .NET cũ chỉ chạy trên Windows. Microsoft
+Dự án này dùng **.NET Framework 4.8**, bản .NET cũ chỉ chạy trên Windows. Microsoft
 vẫn hỗ trợ nhưng đã đóng băng: không thêm tính năng mới.
 
 Đây là **lựa chọn có chủ đích**, không phải nợ kỹ thuật bị bỏ quên. Mục tiêu của dự án là
@@ -110,7 +110,7 @@ Học WinForms vẫn đáng vì:
 
 Và cũng cần nói rõ: **ở lại .NET Framework không có nghĩa là bỏ qua phần kỹ thuật tốt.**
 Mọi hạng mục còn lại trong kế hoạch — transaction, kiểm soát tương tranh, log, `async` —
-đều làm được trên 4.7.2. `async`/`await` có từ .NET Framework 4.5.
+đều làm được trên 4.8. `async`/`await` có từ .NET Framework 4.5.
 
 Nếu sau này bạn bắt đầu một dự án **mới**, WinForms trên .NET 8/9 dùng gần như cùng API
 nhưng có thêm `IConfiguration` và DI thật.

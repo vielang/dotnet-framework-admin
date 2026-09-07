@@ -41,7 +41,7 @@ Dự án có **73 test** trong `EmployeeManagementSystem.Tests/`.
 
 ```powershell
 msbuild EmployeeManagementSystem.sln -p:Configuration=Debug
-vstest.console.exe EmployeeManagementSystem.Tests\bin\Debug\net472\EmployeeManagementSystem.Tests.dll
+vstest.console.exe EmployeeManagementSystem.Tests\bin\Debug\net48\EmployeeManagementSystem.Tests.dll
 ```
 
 > **`dotnet test` không dùng được ở đây.** Project ứng dụng dùng định dạng `.csproj` cũ
