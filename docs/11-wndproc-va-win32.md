@@ -89,28 +89,101 @@ tự trả lời mà không gọi `base`, bạn phá mọi hành vi mặc địn
 **Chỉ đổi khi kết quả là `HTCLIENT`.** Nếu base đã trả lời "đây là cạnh để resize" thì đừng
 đè lên. Chỉ nâng cấp vùng nội dung trống.
 
-**Control con không bị ảnh hưởng.** Mỗi control là một cửa sổ riêng và nhận `WM_NCHITTEST`
-của chính nó. Nút, ô nhập, lưới vẫn hoạt động bình thường — chỉ nền trống của form mới kéo
-được. Đây là điều khiến cách này an toàn, khác hẳn cách bắt `MouseDown` rồi tự tính toạ độ.
+**Control con KHÔNG bị ảnh hưởng — và đó vừa là ưu điểm vừa là giới hạn.** Mỗi control là
+một cửa sổ Win32 riêng và nhận `WM_NCHITTEST` của **chính nó**. Nút, ô nhập, lưới vì thế
+vẫn hoạt động bình thường: đoạn code trên không hề chạm tới chúng.
 
-### So với cách phổ biến trên mạng
+Nhưng lật ngược lại: `WM_NCHITTEST` ở form chỉ trả lời cho **nền trống của form**. Chỗ nào
+bị control che, thông điệp không bao giờ đến `WndProc` của form.
 
-Nhiều hướng dẫn dùng P/Invoke:
+### Bẫy thật gặp trong dự án này
+
+`MainForm` có ba panel:
+
+| Panel | Vị trí | Kích thước |
+|-------|--------|-----------|
+| `panel1` (header) | 0, 0 | 940 × 37 |
+| `panel2` (menu trái) | 0, 37 | 248 × 526 |
+| `panel3` (nội dung) | 248, 37 | 692 × 526 |
+
+`ClientSize` là 940 × 564. Ba panel phủ hết, chỉ chừa lại **một dải cao đúng 1 pixel** ở
+đáy (`{X=0, Y=563, W=940, H=1}`) — không ai bấm trúng được dải đó. Nghĩa là `WndProc` ở
+trên tuy viết đúng nhưng thực tế không bao giờ được gọi tới: `MainForm` hoàn toàn không
+kéo được. Bài học: một cơ chế "đúng lý thuyết" vẫn có thể vô dụng vì bố cục thực tế, và
+chỉ kiểm tra `DragByBackground == true` thì không phát hiện ra — phải đo.
+
+### Kỹ thuật thứ hai: trả cú kéo lại cho Windows
+
+Với những control che kín form, ta bắt `MouseDown` trên chính chúng rồi **nói dối** với
+Windows rằng cú nhấn xảy ra ở thanh tiêu đề của form:
 
 ```csharp
-// Cach pho bien — nhieu thu hon de sai
 [DllImport("user32.dll")] static extern bool ReleaseCapture();
-[DllImport("user32.dll")] static extern int SendMessage(IntPtr h, int msg, int p, int l);
+[DllImport("user32.dll", CharSet = CharSet.Auto)]
+static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
-private void panel1_MouseDown(object sender, MouseEventArgs e)
+private void BeginDrag(object sender, MouseEventArgs e)
 {
-    ReleaseCapture();
-    SendMessage(Handle, 0xA1, 0x2, 0);   // WM_NCLBUTTONDOWN, HTCAPTION
+    if (e.Button != MouseButtons.Left) return;
+
+    ReleaseCapture();                                    // control nha chuot ra
+    SendMessage(Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
 }
 ```
 
-Cách này chạy được nhưng phải gắn handler cho **từng** panel muốn kéo, cần hai lời gọi
-P/Invoke, và dễ quên mất một vùng. Cách `WM_NCHITTEST` không cần P/Invoke nào và áp dụng
+Hai lời gọi, mỗi lời một việc:
+
+- `ReleaseCapture()` — khi bạn nhấn chuột lên một control, control đó **giữ chuột**
+  (mouse capture): mọi chuyển động sau đó thuộc về nó. Không nhả ra thì Windows không thể
+  chạy vòng lặp di chuyển cửa sổ.
+- `SendMessage(..., WM_NCLBUTTONDOWN, HTCAPTION, ...)` — báo cho **form** rằng có cú nhấn
+  trái ở vùng tiêu đề. Windows tự chạy vòng lặp kéo của nó, nên cảm giác giống hệt kéo
+  cửa sổ thật: snap vào cạnh màn hình, Aero shake, đa màn hình đều còn nguyên.
+
+```mermaid
+sequenceDiagram
+    participant U as Người dùng
+    participant P as panel1 (header)
+    participant W as Windows
+    participant F as Form
+
+    U->>P: nhấn chuột trái
+    P->>P: MouseDown → BeginDrag
+    P->>W: ReleaseCapture()
+    P->>F: SendMessage(WM_NCLBUTTONDOWN, HTCAPTION)
+    W->>W: chạy vòng lặp di chuyển cửa sổ
+    U->>W: rê chuột
+    W->>F: cửa sổ đi theo
+```
+
+`AppForm.MakeDraggable(root, except)` gắn handler này đệ quy, nhưng **chỉ cho control thụ
+động** — `Panel`, `Label`, `PictureBox`:
+
+```csharp
+if (control is Panel || control is Label || control is PictureBox)
+{
+    control.MouseDown -= BeginDrag;     // goi hai lan van an toan
+    control.MouseDown += BeginDrag;
+}
+```
+
+`Button`, `TextBox`, `DataGridView` bị bỏ qua vì cú nhấn của chúng có ý nghĩa riêng. Tham
+số `except` xử lý ngoại lệ ngược lại: dấu **X** màu tím ở góc là một `Label` — trông thụ
+động nhưng thực chất là nút đóng, nên phải loại trừ thủ công.
+
+### Vậy dùng cách nào?
+
+**Cả hai.** Chúng bù cho nhau, không thay thế nhau:
+
+| | `WM_NCHITTEST` | `ReleaseCapture` + `WM_NCLBUTTONDOWN` |
+|---|---|---|
+| Phủ được | Nền trống của form | Từng control được chỉ định |
+| Cần P/Invoke | Không | Có (2 hàm) |
+| Công sức | Viết một lần ở lớp cơ sở | Phải liệt kê control |
+| Khi form bị control che kín | **Vô tác dụng** | Vẫn chạy |
+
+`AppForm` cài cả hai: `WndProc` lo phần nền còn trống (`LoginForm`, `RegisterForm` có),
+`MakeDraggable` lo phần bị panel che (`MainForm`).
 cho toàn bộ form một lần.
 
 ## `Message` là gì
@@ -138,6 +211,7 @@ Windows.
 | Thông điệp | Dùng để |
 |------------|---------|
 | `WM_NCHITTEST` (0x0084) | Quyết định vùng nào là tiêu đề / cạnh |
+| `WM_NCLBUTTONDOWN` (0x00A1) | Giả lập cú nhấn lên tiêu đề để Windows tự kéo cửa sổ |
 | `WM_ERASEBKGND` (0x0014) | Nuốt nó đi để chống nhấp nháy khi tự vẽ |
 | `WM_SETREDRAW` (0x000B) | Tạm ngừng vẽ khi cập nhật hàng loạt |
 | `WM_PAINT` (0x000F) | Vẽ — nhưng nên dùng `OnPaint` thay vì bắt tay |
@@ -189,6 +263,7 @@ classDiagram
         +bool EscapeClosesForm
         +WndProc(ref Message) override
         +ProcessCmdKey(...) override
+        +MakeDraggable(Control, Control[])
     }
     class LoginForm
     class RegisterForm
@@ -218,6 +293,9 @@ tiên rồi thoát sớm.
 
 **Dùng `int` thay `IntPtr` cho `Result`.** Chạy ở 32-bit, hỏng ở 64-bit.
 
+**Tưởng đè `WM_NCHITTEST` là xong.** Nếu control phủ kín client area thì thông điệp không
+bao giờ tới form. Phải kiểm tra bằng cách **kéo thật**, không phải bằng cách đọc thuộc tính.
+
 ## Tự kiểm tra
 
 1. Vì sao cửa sổ `FormBorderStyle.None` không kéo đi được?
@@ -225,6 +303,7 @@ tiên rồi thoát sớm.
 3. Đè `WM_NCHITTEST` ở form có làm hỏng việc bấm nút bên trong không? Vì sao?
 4. Vì sao `DragByBackground` bật ở `OnLoad` chứ không phải constructor?
 5. Khi nào **không** nên đè `WndProc`?
+6. `MainForm` có ba panel phủ kín client area. Chỉ đè `WM_NCHITTEST` thì kéo được không?
 
 <details>
 <summary>Đáp án</summary>
@@ -242,6 +321,9 @@ tiên rồi thoát sớm.
    [bài 03](03-vong-doi-form-usercontrol.md).
 5. Khi còn thuộc tính, sự kiện, hoặc phương thức `OnXxx` làm được việc đó. `WndProc` chạy
    cho mọi thông điệp nên chi phí và rủi ro cao hơn hẳn.
+6. **Không.** Không còn pixel nền trống nào nên `WndProc` của form không bao giờ được hỏi.
+   Phải gắn `MouseDown` lên chính các panel đó (`MakeDraggable`) và dùng `ReleaseCapture` +
+   `WM_NCLBUTTONDOWN` để trả cú kéo lại cho Windows.
 
 </details>
 

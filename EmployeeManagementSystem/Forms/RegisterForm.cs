@@ -18,6 +18,12 @@ namespace EmployeeManagementSystem.Forms
         {
             _injectedRepository = users;
             InitializeComponent();
+
+            // label5 reads "Login" and is wired to the login button, so it keeps its
+            // click; exit closes the window.
+            MakeDraggable(panel2, label5);
+            MakeDraggable(label2);
+            MakeDraggable(label3);
         }
 
         /// <summary>

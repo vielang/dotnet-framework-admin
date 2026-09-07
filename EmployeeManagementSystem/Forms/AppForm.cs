@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace EmployeeManagementSystem.Forms
@@ -12,20 +13,32 @@ namespace EmployeeManagementSystem.Forms
     /// at all: they open centred and stay there, even if they cover something the user
     /// needs to see.
     ///
-    /// The fix is one message. Windows asks a window "what is under this point?" by
+    /// Two techniques are needed, because they cover different areas.
+    ///
+    /// The first is one message. Windows asks a window "what is under this point?" by
     /// sending WM_NCHITTEST; the answer decides what a drag there does. Letting the
     /// base class answer first and then upgrading "client area" to "title bar" makes
-    /// the whole background draggable.
+    /// the bare form background draggable - see WndProc below.
     ///
-    /// Child controls are separate windows and get their own WM_NCHITTEST, so buttons,
-    /// text boxes and the grid keep behaving normally - this only affects bare form
-    /// background.
+    /// That alone is not enough. Child controls are separate windows and answer their
+    /// own WM_NCHITTEST, so wherever a control sits the form is never asked. MainForm's
+    /// three panels leave only a one-pixel strip of background, which nobody can hit.
+    /// MakeDraggable covers that case by handing the drag back to Windows from the
+    /// control itself.
     /// </summary>
     public class AppForm : Form
     {
         private const int WM_NCHITTEST = 0x0084;
+        private const int WM_NCLBUTTONDOWN = 0x00A1;
         private const int HTCLIENT = 1;    // "the point is over the client area"
         private const int HTCAPTION = 2;   // "the point is over the title bar"
+
+        /// <summary>Stops the control that was clicked from swallowing the rest of the drag.</summary>
+        [DllImport("user32.dll")]
+        private static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
         public AppForm()
         {
@@ -85,6 +98,69 @@ namespace EmployeeManagementSystem.Forms
             {
                 DragByBackground = true;
             }
+        }
+
+        /// <summary>
+        /// Lets the window be dragged by <paramref name="root"/> and its passive
+        /// children - panels, labels and picture boxes.
+        ///
+        /// <see cref="WndProc"/> alone is not enough. It only answers for bare form
+        /// background, and every control is a window of its own that answers its own
+        /// WM_NCHITTEST. On MainForm the three panels leave only a one-pixel strip of
+        /// background, so the window could not be moved at all.
+        ///
+        /// The trick is to hand the drag back to Windows: release the mouse capture the
+        /// clicked control has just taken, then tell the *form* that a press happened on
+        /// its title bar. Windows then runs its own move loop, which is why this feels
+        /// native - snapping, Aero shake and multi-monitor all keep working.
+        /// </summary>
+        /// <param name="except">
+        /// Controls that must keep their own click behaviour. The purple X is a Label,
+        /// so it looks passive but is really a button.
+        /// </param>
+        protected void MakeDraggable(Control root, params Control[] except)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var excluded = new System.Collections.Generic.HashSet<Control>(
+                except ?? new Control[0]);
+
+            Attach(root, excluded);
+        }
+
+        private void Attach(Control control, System.Collections.Generic.HashSet<Control> excluded)
+        {
+            if (excluded.Contains(control))
+            {
+                return;     // and do not walk into it either
+            }
+
+            // Only controls that do nothing on a click. Buttons, text boxes and the grid
+            // are left alone so they keep working.
+            if (control is Panel || control is Label || control is PictureBox)
+            {
+                control.MouseDown -= BeginDrag;     // idempotent: safe to call twice
+                control.MouseDown += BeginDrag;
+            }
+
+            foreach (Control child in control.Controls)
+            {
+                Attach(child, excluded);
+            }
+        }
+
+        private void BeginDrag(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            ReleaseCapture();
+            SendMessage(Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
         }
     }
 }

@@ -9,6 +9,13 @@ namespace EmployeeManagementSystem.Forms
         public MainForm()
         {
             InitializeComponent();
+
+            // panel1 is the purple strip across the top - the window has no title bar,
+            // so this is what a user reaches for to move it. The three panels cover the
+            // client area but for a one-pixel strip nobody can hit, so without this the
+            // window cannot be moved at all.
+            MakeDraggable(panel1, exit);
+            MakeDraggable(panel2, greet_user);
         }
 
         /// <summary>True when the user logged out, which sends them back to login.</summary>

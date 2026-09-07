@@ -1,4 +1,4 @@
-# Employee Management System with C# Windows Forms (.NET Framework 4.7) 
+# Employee Management System with C# Windows Forms (.NET Framework 4.8) 
 
 - BUILD APPLICATION USING C#
 - BUILD AND DESIGN MAIN FORM
@@ -117,14 +117,14 @@ Seeded login: **admin / admin**.
 ```powershell
 msbuild EmployeeManagementSystem.sln -t:restore
 msbuild EmployeeManagementSystem.sln -p:Configuration=Debug
-vstest.console.exe EmployeeManagementSystem.Tests\bin\Debug\net472\EmployeeManagementSystem.Tests.dll
+vstest.console.exe EmployeeManagementSystem.Tests\bin\Debug\net48\EmployeeManagementSystem.Tests.dll
 ```
 
 `dotnet test` does **not** work here: the application project is a legacy-format
 `.csproj` and the dotnet CLI only builds SDK-style projects. Build with MSBuild and run
 with `vstest.console.exe` (or just use the Test Explorer in Visual Studio).
 
-88 tests, in five kinds:
+93 tests, in six kinds:
 
 | Kind                  | Needs a database | What it protects                                              |
 |-----------------------|------------------|---------------------------------------------------------------|
@@ -132,6 +132,7 @@ with `vstest.console.exe` (or just use the Test Explorer in Visual Studio).
 | `PasswordHasherTests` | no               | hashing, salting, constant-time comparison, malformed input    |
 | `AppLogTests`         | no               | that the log records enough to trace a problem and **never** a password |
 | `DesignerSafetyTests` | no               | that opening a form in the VS designer touches nothing         |
+| `WindowDragTests`     | no               | that the borderless windows can still be dragged, and that buttons and the grid were not turned into drag handles |
 | `*RepositoryTests`    | **yes**          | real CRUD, name-based parameter binding, soft delete           |
 
 Integration tests connect to `localhost:1521/FREEPDB1` by default. Point them elsewhere

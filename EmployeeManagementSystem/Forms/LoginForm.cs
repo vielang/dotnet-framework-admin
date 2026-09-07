@@ -23,6 +23,12 @@ namespace EmployeeManagementSystem.Forms
             // Enter submits (AcceptButton, set in the designer); Escape gives up and
             // ends the application, which is what closing a login window means here.
             EscapeClosesForm = true;
+
+            // label5 reads "Sign up" and is wired to the sign-up button, so it must keep
+            // its click; exit closes the window. Everything else here is decoration.
+            MakeDraggable(panel2, label5);
+            MakeDraggable(label2);
+            MakeDraggable(label3);
         }
 
         /// <summary>
