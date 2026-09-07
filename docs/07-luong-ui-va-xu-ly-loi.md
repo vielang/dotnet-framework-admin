@@ -70,9 +70,9 @@ sequenceDiagram
     Note over L: 🔓 Xử lý dồn các thông điệp tồn
 ```
 
-**Dự án này hiện đang đồng bộ hoàn toàn** — mọi truy vấn chạy thẳng trên UI thread. Với
-database local và vài trăm dòng thì không nhận ra. Với database ở xa hoặc bảng lớn thì sẽ
-thấy rõ. Đây là hạng mục F11 trong [kế hoạch cải tiến](../README.md).
+**Dự án này hiện đang đồng bộ hoàn toàn** — mọi truy vấn chạy thẳng trên UI thread. Riêng
+việc đăng nhập đã mất khoảng 400ms vì PBKDF2, và cửa sổ đơ chừng ấy. Đây là hạng mục F11
+trong [kế hoạch cải tiến](../README.md), và là [bài tập 6](12-bai-tap.md).
 
 ### Cách sửa đúng: `async`/`await`
 
@@ -193,7 +193,7 @@ flowchart LR
     B --> C["UiMessage.Error(ex)"]
     C --> D{"Loại ngoại lệ?"}
     D -->|"DuplicateKeyException<br/>DataRuleViolationException"| E["Warn — cảnh báo thân thiện<br/><i>người dùng sửa được</i>"]
-    D -->|khác| F["Error — ex.Message<br/>+ ghi Debug trace"]
+    D -->|khác| F["Error — ex.Message + mã tra cứu<br/>+ toàn bộ ngoại lệ vào log"]
 
     style E fill:#fff5e8,stroke:#e5bf87
     style F fill:#ffe9e6,stroke:#d98b84
@@ -206,12 +206,17 @@ public static void Error(Exception ex)
     // Người dùng vi phạm quy tắc thì không phải là sự cố hệ thống.
     if (ex is DuplicateKeyException || ex is DataRuleViolationException)
     {
+        Log.Information("Rejected by a data rule: {Message}", ex.Message);
         Warn(ex.Message);
         return;
     }
 
-    System.Diagnostics.Debug.WriteLine(ex);
-    MessageBox.Show(ex.Message, "Error Message", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    string reference = AppLog.NewReference();
+    Log.Error(ex, "Error shown to the user. Reference {Reference}", reference);
+
+    MessageBox.Show(
+        ex.Message + Environment.NewLine + Environment.NewLine + "Reference: " + reference,
+        "Error Message", MessageBoxButtons.OK, MessageBoxIcon.Error);
 }
 ```
 
@@ -223,11 +228,108 @@ Ba nguyên tắc rút ra:
 | Hiện `ex.Message`, không hiện `ex.ToString()` | Người dùng không cần stack trace |
 | Phân biệt "người dùng sai" và "hệ thống lỗi" | Trùng mã nhân viên là chuyện thường, không phải crash |
 
-### Chỗ vẫn còn thiếu
+## Log — thứ biến "chạy được" thành "vận hành được"
 
-`Debug.WriteLine` **biến mất hoàn toàn trong bản Release**. Nghĩa là khi người dùng báo
-lỗi, không có gì để tra. Đây là hạng mục F8 — cần một thư viện log thật (Serilog) ghi ra
-file. Ghi nhớ: **log là thứ bạn chỉ thấy cần khi đã quá muộn.**
+Trước đây toàn bộ ứng dụng có **đúng một** dòng `Debug.WriteLine`, và nó **biến mất hoàn
+toàn trong bản Release**. Người dùng báo lỗi thì không có gì để tra.
+
+Giờ dự án dùng **Serilog** ghi ra file xoay vòng theo ngày.
+
+### Ghi ở đâu, và vì sao không phải cạnh file .exe
+
+```csharp
+// Diagnostics/AppLog.cs
+public static string LogDirectory
+{
+    get
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "EmployeeManagementSystem",
+            "logs");
+    }
+}
+```
+
+Cạnh `.exe` là sai: khi cài vào `Program Files`, người dùng thường **không có quyền ghi**
+ở đó. Log mà ứng dụng không ghi được còn tệ hơn không có log — vì thất bại đó xảy ra
+trong im lặng.
+
+### Mã tra cứu — nối người dùng với dòng log
+
+Đây là chi tiết nhỏ nhưng đổi hẳn cách hỗ trợ người dùng:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as Người dùng
+    participant A as UiMessage.Error
+    participant L as File log
+    participant S as Người hỗ trợ
+
+    A->>A: reference = AppLog.NewReference()
+    A->>L: Log.Error(ex, "... Reference {Reference}", reference)
+    A->>U: "Lỗi ... Reference: 7K2M9QW4"
+    U->>S: "báo lỗi, mã 7K2M9QW4"
+    S->>L: tìm 7K2M9QW4
+    L-->>S: đúng dòng đó, kèm stack trace đầy đủ
+```
+
+Người dùng nhận **một câu** dễ hiểu cộng một mã; log nhận **toàn bộ** ngoại lệ dưới cùng
+mã đó. "Nó bị lỗi" trở thành "nó bị lỗi, mã 7K2M9QW4".
+
+Mã dùng bảng chữ cái bỏ `I`, `L`, `O`, `U` — vì người dùng sẽ **đọc nó qua điện thoại**.
+
+### Điều quan trọng nhất: cái gì KHÔNG được ghi
+
+Log rò rỉ mật khẩu biến công cụ vận hành thành lỗ hổng bảo mật. Ba quy tắc trong dự án:
+
+| Không bao giờ ghi | Vì sao |
+|-------------------|--------|
+| Mật khẩu người dùng nhập | Hiển nhiên — kể cả khi họ gõ sai |
+| Chuỗi kết nối | Nó chứa mật khẩu database |
+| Hash và salt | Ghi ra là tặng kẻ tấn công dữ liệu để bẻ khoá offline |
+
+Có **4 test tự động** canh đúng điều này, chạy không cần database. Và một bài kiểm tra
+chạy thật toàn bộ luồng đăng nhập rồi quét file log — kết quả thật:
+
+```
+=== KIEM TRA BAO MAT ===
+  Ems_Pass2026            khong xuat hien
+  Password=               khong xuat hien
+  wrong-password-12345    khong xuat hien
+  PBKDF2                  khong xuat hien
+```
+
+### Log thật trông thế nào
+
+```
+2026-09-07 14:23:15.748 [INF] Signed in as admin.
+2026-09-07 14:23:15.993 [WRN] Failed sign-in for admin.
+2026-09-07 14:23:16.235 [WRN] Failed sign-in for khong-ton-tai.
+2026-09-07 14:23:16.287 [INF] Added employee LOG-be9cd6 (Active).
+2026-09-07 14:23:16.292 [INF] Set salary of LOG-be9cd6 to 4242, 1 row(s).
+```
+
+Để ý hai dòng `Failed sign-in`: cách nhau **245ms** và **242ms**. Đó chính là
+`PasswordHasher.BurnTime()` ([bài tập 9](12-bai-tap.md)) đang làm việc — user có
+thật và user không tồn tại tốn thời gian như nhau, nên thời gian phản hồi không tiết lộ
+username nào đã đăng ký. **Chính log lại là bằng chứng cho biện pháp bảo mật đó.**
+
+Cũng để ý cả hai dòng ghi **cùng một câu**. Nếu một dòng ghi "unknown username" còn dòng
+kia ghi "wrong password", thì log lại tự tay làm lộ đúng thứ mà `BurnTime` đang che.
+
+### Bắt ngoại lệ không ai bắt
+
+Hai loại ngoại lệ vốn biến mất không dấu vết, nay đều được ghi:
+
+```csharp
+// Program.cs
+Application.ThreadException += ...            // ném trong event handler
+AppDomain.CurrentDomain.UnhandledException += ...   // ném ở luồng không ai canh
+```
+
+Thiếu chúng thì một cú sập chỉ hiện hộp thoại mặc định của Windows rồi **không để lại gì**.
 
 ## Cạm bẫy
 

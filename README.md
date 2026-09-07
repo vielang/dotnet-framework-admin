@@ -124,13 +124,15 @@ vstest.console.exe EmployeeManagementSystem.Tests\bin\Debug\net472\EmployeeManag
 `.csproj` and the dotnet CLI only builds SDK-style projects. Build with MSBuild and run
 with `vstest.console.exe` (or just use the Test Explorer in Visual Studio).
 
-The suite has three kinds of test:
+84 tests, in four kinds:
 
-| Kind                 | Needs a database | What it protects                                              |
-|----------------------|------------------|---------------------------------------------------------------|
-| `SqlCatalogTests`    | no               | XML parsing, and that every statement key a repository asks for exists |
-| `DesignerSafetyTests`| no               | that opening a form in the VS designer touches nothing         |
-| `*RepositoryTests`   | **yes**          | real CRUD, name-based parameter binding, soft delete           |
+| Kind                  | Needs a database | What it protects                                              |
+|-----------------------|------------------|---------------------------------------------------------------|
+| `SqlCatalogTests`     | no               | XML parsing, and that every statement key a repository asks for exists |
+| `PasswordHasherTests` | no               | hashing, salting, constant-time comparison, malformed input    |
+| `AppLogTests`         | no               | that the log records enough to trace a problem and **never** a password |
+| `DesignerSafetyTests` | no               | that opening a form in the VS designer touches nothing         |
+| `*RepositoryTests`    | **yes**          | real CRUD, name-based parameter binding, soft delete           |
 
 Integration tests connect to `localhost:1521/FREEPDB1` by default. Point them elsewhere
 with the `EMS_TEST_CONNECTION` environment variable. **When no database is reachable they
@@ -210,7 +212,43 @@ holds credential material.
 > `admin` / `admin` with a proper hash. See the comment at the top of
 > `db/migrations/V4__hash_user_passwords.sql`.
 
-## 7. Useful container commands
+## 7. Logs
+
+Written to a rolling daily file under `%LOCALAPPDATA%`, kept for 14 days:
+
+```
+%LOCALAPPDATA%\EmployeeManagementSystem\logs\ems-YYYYMMDD.log
+```
+
+Not next to the executable, because `Program Files` is not writable by an ordinary user
+and a log the application cannot write fails silently.
+
+```
+2026-09-07 14:23:15.748 [INF] Signed in as admin.
+2026-09-07 14:23:15.993 [WRN] Failed sign-in for admin.
+2026-09-07 14:23:16.235 [WRN] Failed sign-in for khong-ton-tai.
+2026-09-07 14:23:16.287 [INF] Added employee LOG-be9cd6 (Active).
+2026-09-07 14:23:16.292 [INF] Set salary of LOG-be9cd6 to 4242, 1 row(s).
+```
+
+**Errors carry a reference code.** The user sees one sentence plus a code such as
+`7K2M9QW4`; the log holds the full exception under that same code, so a support call
+starts with the reference instead of "it broke". The alphabet omits `I`, `L`, `O` and `U`
+because people read these codes out loud.
+
+**What is never written:** a user's password, a connection string, or a stored hash and
+salt. `AppLogTests` guards all three, and they run without a database.
+
+Two details worth noticing in the sample above. Both failed sign-ins log the *same*
+sentence — logging "unknown username" for one and "wrong password" for the other would
+hand back exactly the information `PasswordHasher.BurnTime()` exists to hide. And the
+245 ms / 242 ms gap between them is that timing defence working.
+
+`Program.cs` also subscribes to `Application.ThreadException` and
+`AppDomain.UnhandledException`, so a crash inside an event handler or on an unwatched
+thread is recorded rather than vanishing behind Windows' own dialog.
+
+## 8. Useful container commands
 
 ```powershell
 docker compose -f db\docker-compose.yml logs -f      # watch startup

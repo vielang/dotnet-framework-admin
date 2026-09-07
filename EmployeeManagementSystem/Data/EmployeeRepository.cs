@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using Dapper;
 using Oracle.ManagedDataAccess.Client;
+using Serilog;
 using EmployeeManagementSystem.Models;
 
 namespace EmployeeManagementSystem.Data
@@ -96,6 +97,9 @@ namespace EmployeeManagementSystem.Data
                             .Set("insertDate", DateTime.Today)
                             .Set("status", employee.Status));
                 }
+
+                Log.Information("Added employee {EmployeeId} ({Status}).",
+                    employee.EmployeeId, employee.Status);
             }
             catch (OracleException ex)
             {
@@ -111,7 +115,7 @@ namespace EmployeeManagementSystem.Data
             {
                 using (IDbConnection connection = _connections.Create())
                 {
-                    return connection.Execute(
+                    int rows = connection.Execute(
                         _sql.Get("Employee.Update"),
                         OracleParams.New()
                             .Set("fullName", employee.FullName)
@@ -122,6 +126,10 @@ namespace EmployeeManagementSystem.Data
                             .Set("status", employee.Status)
                             .Set("updateDate", DateTime.Today)
                             .Set("employeeId", employee.EmployeeId));
+
+                    Log.Information("Updated employee {EmployeeId}, {Rows} row(s).",
+                        employee.EmployeeId, rows);
+                    return rows;
                 }
             }
             catch (OracleException ex)
@@ -136,12 +144,17 @@ namespace EmployeeManagementSystem.Data
             {
                 using (IDbConnection connection = _connections.Create())
                 {
-                    return connection.Execute(
+                    int rows = connection.Execute(
                         _sql.Get("Employee.UpdateSalary"),
                         OracleParams.New()
                             .Set("salary", salary)
                             .Set("updateDate", DateTime.Today)
                             .Set("employeeId", employeeId));
+
+                    // Salary changes are the ones somebody will ask about later.
+                    Log.Information("Set salary of {EmployeeId} to {Salary}, {Rows} row(s).",
+                        employeeId, salary, rows);
+                    return rows;
                 }
             }
             catch (OracleException ex)
@@ -154,11 +167,14 @@ namespace EmployeeManagementSystem.Data
         {
             using (IDbConnection connection = _connections.Create())
             {
-                return connection.Execute(
+                int rows = connection.Execute(
                     _sql.Get("Employee.SoftDelete"),
                     OracleParams.New()
                         .Set("deleteDate", DateTime.Today)
                         .Set("employeeId", employeeId));
+
+                Log.Information("Soft-deleted employee {EmployeeId}, {Rows} row(s).", employeeId, rows);
+                return rows;
             }
         }
 

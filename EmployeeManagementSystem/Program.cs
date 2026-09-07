@@ -1,6 +1,8 @@
 using System;
 using System.Windows.Forms;
+using EmployeeManagementSystem.Diagnostics;
 using EmployeeManagementSystem.Forms;
+using Serilog;
 
 namespace EmployeeManagementSystem
 {
@@ -12,22 +14,78 @@ namespace EmployeeManagementSystem
         [STAThread]
         static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
+            // Logging first, before anything that can fail, so that a failure during
+            // start-up is itself recorded rather than lost.
+            AppLog.Initialize();
+            Log.Information("---- Starting {Version} on {Machine} ----",
+                typeof(Program).Assembly.GetName().Version, Environment.MachineName);
 
             try
             {
-                AppServices.Initialize();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    "The application could not start:" + Environment.NewLine + Environment.NewLine + ex.Message,
-                    "Startup Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
 
-            RunSessions();
+                InstallCrashHandlers();
+
+                try
+                {
+                    AppServices.Initialize();
+                }
+                catch (Exception ex)
+                {
+                    Log.Fatal(ex, "Start-up failed while wiring up services.");
+
+                    MessageBox.Show(
+                        "The application could not start:" + Environment.NewLine + Environment.NewLine + ex.Message
+                        + Environment.NewLine + Environment.NewLine + "Details were written to:"
+                        + Environment.NewLine + AppLog.LogDirectory,
+                        "Startup Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                RunSessions();
+            }
+            finally
+            {
+                Log.Information("---- Stopping ----");
+                AppLog.Shutdown();
+            }
+        }
+
+        /// <summary>
+        /// Catches the two kinds of exception that otherwise vanish: one thrown inside
+        /// an event handler, and one thrown on a thread nobody is watching. Without
+        /// these, a crash shows Windows' own dialog and leaves nothing behind.
+        /// </summary>
+        private static void InstallCrashHandlers()
+        {
+            Application.ThreadException += (sender, e) =>
+            {
+                string reference = AppLog.NewReference();
+                Log.Error(e.Exception, "Unhandled exception on the UI thread. Reference {Reference}", reference);
+                ShowCrash(e.Exception, reference);
+            };
+
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+            {
+                var ex = e.ExceptionObject as Exception;
+                string reference = AppLog.NewReference();
+                Log.Fatal(ex, "Unhandled exception, terminating = {Terminating}. Reference {Reference}",
+                    e.IsTerminating, reference);
+                Log.CloseAndFlush();   // the process may be about to die
+            };
+
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        }
+
+        private static void ShowCrash(Exception ex, string reference)
+        {
+            MessageBox.Show(
+                "Something went wrong." + Environment.NewLine + Environment.NewLine
+                + ex.Message + Environment.NewLine + Environment.NewLine
+                + "Reference: " + reference + Environment.NewLine
+                + "Logs: " + AppLog.LogDirectory,
+                "Unexpected Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         /// <summary>
@@ -50,6 +108,7 @@ namespace EmployeeManagementSystem
 
                     if (!login.LoginSucceeded)
                     {
+                        Log.Information("Login window closed without signing in; exiting.");
                         return;     // the user closed or exited the login window
                     }
                 }
@@ -62,6 +121,8 @@ namespace EmployeeManagementSystem
                     {
                         return;     // anything other than "log out" ends the application
                     }
+
+                    Log.Information("User logged out; returning to the login window.");
                 }
             }
         }

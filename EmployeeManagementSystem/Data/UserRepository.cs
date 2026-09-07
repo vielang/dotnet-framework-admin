@@ -3,6 +3,7 @@ using System.Data;
 using System.Linq;
 using Dapper;
 using Oracle.ManagedDataAccess.Client;
+using Serilog;
 using EmployeeManagementSystem.Models;
 
 namespace EmployeeManagementSystem.Data
@@ -38,6 +39,11 @@ namespace EmployeeManagementSystem.Data
                 // unknown username cannot be told apart from a wrong password by
                 // how quickly the answer comes back.
                 PasswordHasher.BurnTime();
+
+                // Username only. A password must never reach the log - and neither
+                // must any hint of which usernames exist, so both failure paths log
+                // exactly the same sentence.
+                Log.Warning("Failed sign-in for {Username}.", username);
                 return null;
             }
 
@@ -50,8 +56,11 @@ namespace EmployeeManagementSystem.Data
 
             if (!ok)
             {
+                Log.Warning("Failed sign-in for {Username}.", username);
                 return null;
             }
+
+            Log.Information("Signed in as {Username}.", username);
 
             // The caller is the UI. It has no business holding the hash.
             user.ForgetCredentials();
@@ -93,6 +102,8 @@ namespace EmployeeManagementSystem.Data
                             .Set("passwordSalt", hash.Salt)
                             .Set("passwordIterations", hash.Iterations));
                 }
+
+                Log.Information("Registered a new account for {Username}.", username);
             }
             catch (OracleException ex)
             {

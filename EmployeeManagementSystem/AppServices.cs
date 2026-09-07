@@ -1,5 +1,6 @@
 using System;
 using Dapper;
+using Serilog;
 using EmployeeManagementSystem.Data;
 
 namespace EmployeeManagementSystem
@@ -42,6 +43,10 @@ namespace EmployeeManagementSystem
 
             var connections = new OracleConnectionFactory();
             SqlCatalog sql = SqlCatalog.LoadFromDefaultDirectory();
+
+            // The connection string is deliberately absent: it carries a password.
+            Log.Information("Loaded {Count} SQL statements from {Directory}.",
+                System.Linq.Enumerable.Count(sql.Keys), SqlCatalog.DefaultDirectory);
 
             Initialize(new EmployeeRepository(connections, sql), new UserRepository(connections, sql));
         }
