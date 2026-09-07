@@ -1,4 +1,4 @@
-[← Bài 07](07-luong-ui-va-xu-ly-loi.md) · Bài 08/09 · [Tiếp: Bài tập →](09-bai-tap.md)
+[← Bài 07](07-luong-ui-va-xu-ly-loi.md) · Bài 08/12 · [Tiếp: Bố cục và DPI →](09-bo-cuc-va-dpi.md)
 
 # 08 · Kiểm thử WinForms
 
@@ -385,4 +385,4 @@ flowchart TB
 
 ---
 
-[← Bài 07](07-luong-ui-va-xu-ly-loi.md) · [Tiếp: Bài tập →](09-bai-tap.md)
+[← Bài 07](07-luong-ui-va-xu-ly-loi.md) · [Tiếp: Bố cục và DPI →](09-bo-cuc-va-dpi.md)

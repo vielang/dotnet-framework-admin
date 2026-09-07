@@ -1,4 +1,4 @@
-[← Bài 05](05-ket-noi-database.md) · Bài 06/09 · [Tiếp: Luồng UI và xử lý lỗi →](07-luong-ui-va-xu-ly-loi.md)
+[← Bài 05](05-ket-noi-database.md) · Bài 06/12 · [Tiếp: Luồng UI và xử lý lỗi →](07-luong-ui-va-xu-ly-loi.md)
 
 # 06 · Kiến trúc phân tầng
 

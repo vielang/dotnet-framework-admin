@@ -1,4 +1,4 @@
-[← Mục lục](README.md) · Bài 01/09 · [Tiếp: Giải phẫu dự án →](02-giai-phau-du-an.md)
+[← Mục lục](README.md) · Bài 01/12 · [Tiếp: Giải phẫu dự án →](02-giai-phau-du-an.md)
 
 # 01 · WinForms chạy thế nào
 

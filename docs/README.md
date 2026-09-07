@@ -32,13 +32,20 @@ flowchart TD
         H["08 · Kiểm thử WinForms"]
     end
 
-    I["09 · Bài tập"]
+    subgraph P4["Phần 4 · Xuống sâu hơn"]
+        J["09 · Bố cục &amp; DPI<br/><i>Dock, Anchor, manifest</i>"]
+        K["10 · Bàn phím &amp; focus<br/><i>AcceptButton, ProcessCmdKey</i>"]
+        L["11 · WndProc &amp; Win32<br/><i>thông điệp cửa sổ</i>"]
+    end
 
-    A --> B --> C --> D --> E --> F --> G --> H --> I
+    I["12 · Bài tập"]
+
+    A --> B --> C --> D --> E --> F --> G --> H --> J --> K --> L --> I
 
     style P1 fill:#eef4ff,stroke:#9bb8e8
     style P2 fill:#eefaf3,stroke:#8fcfae
     style P3 fill:#fff5e8,stroke:#e5bf87
+    style P4 fill:#f3ecfa,stroke:#b79ad6
 ```
 
 ## Mục lục
@@ -53,7 +60,10 @@ flowchart TD
 | 06 | [Kiến trúc phân tầng](06-kien-truc-phan-tang.md) | Vì sao không viết SQL thẳng trong nút bấm? |
 | 07 | [Luồng UI và xử lý lỗi](07-luong-ui-va-xu-ly-loi.md) | Vì sao app đơ? `InvokeRequired` là gì? |
 | 08 | [Kiểm thử WinForms](08-kiem-thu-winforms.md) | Test một cái form kiểu gì? |
-| 09 | [Bài tập](09-bai-tap.md) | Tự làm để nhớ. |
+| 09 | [Bố cục và DPI](09-bo-cuc-va-dpi.md) | Vì sao chữ mờ trên laptop? `Dock` khác `Anchor` thế nào? |
+| 10 | [Bàn phím và focus](10-ban-phim-va-focus.md) | Vì sao nhấn Enter không đăng nhập? Thứ tự Tab từ đâu ra? |
+| 11 | [WndProc và Win32](11-wndproc-va-win32.md) | Bên dưới một `Control` thực ra là gì? |
+| 12 | [Bài tập](12-bai-tap.md) | Tự làm để nhớ. |
 
 ## Cách dùng bộ tài liệu này
 

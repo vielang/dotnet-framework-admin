@@ -1,4 +1,4 @@
-[← Bài 04](04-datagridview-databinding.md) · Bài 05/09 · [Tiếp: Kiến trúc phân tầng →](06-kien-truc-phan-tang.md)
+[← Bài 04](04-datagridview-databinding.md) · Bài 05/12 · [Tiếp: Kiến trúc phân tầng →](06-kien-truc-phan-tang.md)
 
 # 05 · Kết nối database
 

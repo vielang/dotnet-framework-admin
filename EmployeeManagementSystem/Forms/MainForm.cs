@@ -4,7 +4,7 @@ using EmployeeManagementSystem.Views;
 
 namespace EmployeeManagementSystem.Forms
 {
-    public partial class MainForm : Form
+    public partial class MainForm : AppForm
     {
         public MainForm()
         {

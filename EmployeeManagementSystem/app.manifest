@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="EmployeeManagementSystem.app" />
+
+  <!--
+    Without this file the application is "DPI unaware". On a display scaled above
+    100% - which most laptops now are - Windows renders the window at 96 DPI and
+    then stretches the bitmap. Everything still lines up, but text goes soft and
+    blurry, and screenshots look wrong.
+
+    Declaring per-monitor awareness means Windows hands the real DPI to the
+    application and expects it to scale itself. WinForms does that through
+    AutoScaleMode.Font, which every form here already sets.
+  -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <!-- Windows 10 1703 and later: rescales on the fly when the window moves
+           between monitors with different scaling. -->
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+      <!-- Windows 8.1 to Windows 10 1607, which do not understand dpiAwareness. -->
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+    </windowsSettings>
+  </application>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 and 11 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+      <!-- Windows 8.1 -->
+      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}" />
+      <!-- Windows 7 -->
+      <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}" />
+    </application>
+  </compatibility>
+</assembly>

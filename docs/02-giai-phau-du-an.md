@@ -1,4 +1,4 @@
-[← Bài 01](01-winforms-hoat-dong-the-nao.md) · Bài 02/09 · [Tiếp: Vòng đời Form →](03-vong-doi-form-usercontrol.md)
+[← Bài 01](01-winforms-hoat-dong-the-nao.md) · Bài 02/12 · [Tiếp: Vòng đời Form →](03-vong-doi-form-usercontrol.md)
 
 # 02 · Giải phẫu dự án
 

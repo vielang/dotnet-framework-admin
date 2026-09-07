@@ -1,4 +1,4 @@
-[← Bài 06](06-kien-truc-phan-tang.md) · Bài 07/09 · [Tiếp: Kiểm thử WinForms →](08-kiem-thu-winforms.md)
+[← Bài 06](06-kien-truc-phan-tang.md) · Bài 07/12 · [Tiếp: Kiểm thử WinForms →](08-kiem-thu-winforms.md)
 
 # 07 · Luồng UI và xử lý lỗi
 

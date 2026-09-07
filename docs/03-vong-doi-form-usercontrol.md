@@ -1,4 +1,4 @@
-[← Bài 02](02-giai-phau-du-an.md) · Bài 03/09 · [Tiếp: DataGridView →](04-datagridview-databinding.md)
+[← Bài 02](02-giai-phau-du-an.md) · Bài 03/12 · [Tiếp: DataGridView →](04-datagridview-databinding.md)
 
 # 03 · Vòng đời Form và UserControl
 
@@ -245,7 +245,7 @@ control có cha và cha được hiện. Trong dự án này, mở `MainForm` s�
 database cùng lúc, dù người dùng chỉ nhìn thấy một màn hình.
 
 > Đây là một điểm chưa tối ưu còn tồn tại. Nạp lười (chỉ nạp khi view được hiện lần đầu)
-> là [bài tập 5](09-bai-tap.md).
+> là [bài tập 5](12-bai-tap.md).
 
 ## Mẫu lớp cơ sở
 

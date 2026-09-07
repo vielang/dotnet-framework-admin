@@ -5,7 +5,7 @@ using EmployeeManagementSystem.Models;
 
 namespace EmployeeManagementSystem.Forms
 {
-    public partial class LoginForm : Form
+    public partial class LoginForm : AppForm
     {
         private readonly IUserRepository _injectedRepository;
 
@@ -19,6 +19,10 @@ namespace EmployeeManagementSystem.Forms
         {
             _injectedRepository = users;
             InitializeComponent();
+
+            // Enter submits (AcceptButton, set in the designer); Escape gives up and
+            // ends the application, which is what closing a login window means here.
+            EscapeClosesForm = true;
         }
 
         /// <summary>

@@ -200,21 +200,21 @@
             // 
             // dashboardView
             // 
-            this.dashboardView.Location = new System.Drawing.Point(-3, 0);
+            this.dashboardView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dashboardView.Name = "dashboardView";
             this.dashboardView.Size = new System.Drawing.Size(923, 648);
             this.dashboardView.TabIndex = 2;
             // 
             // employeeView
             // 
-            this.employeeView.Location = new System.Drawing.Point(0, 0);
+            this.employeeView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.employeeView.Name = "employeeView";
             this.employeeView.Size = new System.Drawing.Size(923, 648);
             this.employeeView.TabIndex = 1;
             // 
             // salaryView
             // 
-            this.salaryView.Location = new System.Drawing.Point(-3, 0);
+            this.salaryView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.salaryView.Name = "salaryView";
             this.salaryView.Size = new System.Drawing.Size(923, 648);
             this.salaryView.TabIndex = 0;

@@ -1,4 +1,4 @@
-[← Bài 03](03-vong-doi-form-usercontrol.md) · Bài 04/09 · [Tiếp: Kết nối database →](05-ket-noi-database.md)
+[← Bài 03](03-vong-doi-form-usercontrol.md) · Bài 04/12 · [Tiếp: Kết nối database →](05-ket-noi-database.md)
 
 # 04 · DataGridView và data binding
 

@@ -4,7 +4,7 @@ using EmployeeManagementSystem.Data;
 
 namespace EmployeeManagementSystem.Forms
 {
-    public partial class RegisterForm : Form
+    public partial class RegisterForm : AppForm
     {
         private readonly IUserRepository _injectedRepository;
 

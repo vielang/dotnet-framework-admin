@@ -1,4 +1,4 @@
-[← Bài 08](08-kiem-thu-winforms.md) · Bài 09/09 · [Mục lục](README.md)
+[← Bài 11](11-wndproc-va-win32.md) · Bài 12/12 · [Mục lục](README.md)
 
 # 09 · Bài tập
 
@@ -316,4 +316,4 @@ runtime. `async`/`await` có từ .NET Framework 4.5, và Serilog cũng hỗ tr�
 
 ---
 
-[← Bài 08](08-kiem-thu-winforms.md) · [Mục lục](README.md)
+[← Bài 11](11-wndproc-va-win32.md) · [Mục lục](README.md)
