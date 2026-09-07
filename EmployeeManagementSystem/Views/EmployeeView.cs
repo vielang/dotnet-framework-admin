@@ -1,7 +1,9 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
+using Serilog;
 using EmployeeManagementSystem.Forms;
 using EmployeeManagementSystem.Models;
 
@@ -19,15 +21,23 @@ namespace EmployeeManagementSystem.Views
         /// <summary>A file the user just picked with Import, not yet saved. Null when unchanged.</summary>
         private string _importedPicturePath;
 
-        /// <summary>Folder next to the executable where employee photos are stored.</summary>
-        private static string PictureDirectory
-        {
-            get { return Path.Combine(Application.StartupPath, PictureFolderName); }
-        }
+        /// <summary>
+        /// Folder that new photos are written into. Defaults to a folder beside the
+        /// executable; settable so a test does not have to write next to whatever
+        /// process happens to be hosting it.
+        ///
+        /// Writing beside the executable is the same bet AppLog deliberately refused
+        /// to make: if this application is ever installed under Program Files, an
+        /// ordinary user cannot create this folder and photos will not save. Storing
+        /// photos properly is finding F17.
+        /// </summary>
+        internal string PictureDirectory { get; set; }
 
         public EmployeeView()
         {
             InitializeComponent();
+
+            PictureDirectory = Path.Combine(Application.StartupPath, PictureFolderName);
         }
 
         protected override void LoadData()
@@ -53,10 +63,18 @@ namespace EmployeeManagementSystem.Views
                     return;
                 }
 
-                employee.Image = SavePicture(employee.EmployeeId, null);
+                employee.Image = PlannedPicturePath(employee.EmployeeId, null);
                 employee.Salary = 0;
 
+                // Database first. Only once the row exists does the photo get copied,
+                // so a rejected insert never leaves a file behind.
                 Employees.Add(employee);
+
+                if (!TryCommitPicture(employee.EmployeeId))
+                {
+                    UiMessage.Warn("The employee was saved, but the photo could not be stored.");
+                    ClearStoredImage(employee.EmployeeId);
+                }
 
                 LoadData();
                 UiMessage.Info("Added successfully!");
@@ -84,12 +102,20 @@ namespace EmployeeManagementSystem.Views
 
             try
             {
-                employee.Image = SavePicture(employee.EmployeeId, _storedPicturePath);
+                employee.Image = PlannedPicturePath(employee.EmployeeId, _storedPicturePath);
 
                 if (Employees.Update(employee) == 0)
                 {
+                    // Nothing was written, so nothing on disk has been touched either -
+                    // the existing photo survives.
                     UiMessage.Warn("No employee found with ID " + employee.EmployeeId + ".");
                     return;
+                }
+
+                if (!TryCommitPicture(employee.EmployeeId))
+                {
+                    UiMessage.Warn("The employee was saved, but the photo could not be stored.");
+                    ClearStoredImage(employee.EmployeeId);
                 }
 
                 LoadData();
@@ -300,21 +326,77 @@ namespace EmployeeManagementSystem.Views
         /// Adding a new employee passes null: a new person does not inherit the photo
         /// of whichever row happened to be selected in the grid.
         /// </param>
-        private string SavePicture(string employeeId, string existingPath)
+        private string PlannedPicturePath(string employeeId, string existingPath)
         {
             if (string.IsNullOrEmpty(_importedPicturePath))
             {
                 return existingPath;            // nothing was imported: leave it alone
             }
 
-            string relative = Path.Combine(PictureFolderName, employeeId + ".jpg");
-            string target = Path.Combine(Application.StartupPath, relative);
-
-            Directory.CreateDirectory(PictureDirectory);
-            File.Copy(_importedPicturePath, target, true);
-
             // Stored relative, so the application keeps working if the folder moves.
-            return relative;
+            return Path.Combine(PictureFolderName, employeeId + ".jpg");
+        }
+
+        /// <summary>
+        /// Copies the imported photo into place. Call this only once the database write
+        /// has succeeded.
+        ///
+        /// A file cannot take part in a database transaction, so the two are ordered
+        /// instead: the database first, the file second. The copy overwrites, and it
+        /// used to run *before* the UPDATE - so an update that changed no rows (someone
+        /// else had deleted the employee) destroyed the old photo and changed nothing
+        /// in the database. Doing the database first means a failure there leaves the
+        /// photo exactly as it was.
+        /// </summary>
+        /// <returns>True when there was nothing to do, or the photo was stored.</returns>
+        private bool TryCommitPicture(string employeeId)
+        {
+            if (string.IsNullOrEmpty(_importedPicturePath))
+            {
+                return true;                    // nothing was imported
+            }
+
+            string target = Path.Combine(PictureDirectory, employeeId + ".jpg");
+
+            try
+            {
+                Directory.CreateDirectory(PictureDirectory);
+                File.Copy(_importedPicturePath, target, true);
+                Log.Information("Stored the photo for {EmployeeId}.", employeeId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // Deliberately no MessageBox here. A helper that does I/O and also puts
+                // a modal dialog on screen cannot be tested without hanging, and it is
+                // the same mistake the data layer used to make. The caller reports.
+                Log.Error(ex, "Saved {EmployeeId} but could not store the photo.", employeeId);
+                return false;
+            }
+        }
+
+        /// <summary>Compensating write: the row must not claim a photo that is not there.</summary>
+        private void ClearStoredImage(string employeeId)
+        {
+            try
+            {
+                Employee stored = Employees.GetAll()
+                    .FirstOrDefault(e => e.EmployeeId == employeeId);
+
+                if (stored == null || stored.Image == null)
+                {
+                    return;
+                }
+
+                stored.Image = null;
+                Employees.Update(stored);
+            }
+            catch (Exception ex)
+            {
+                // Nothing further to try. The application already tolerates a missing
+                // photo file, so this is untidy rather than broken.
+                Log.Error(ex, "Could not clear the photo path for {EmployeeId}.", employeeId);
+            }
         }
     }
 }

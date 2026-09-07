@@ -34,3 +34,8 @@ using System.Runtime.InteropServices;
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
+
+// The test project needs the few members marked internal - the picture folder in
+// EmployeeView, so a test can write somewhere it is allowed to, and EmployeeGrid.
+// Nothing else is opened up: this is narrower than making those members public.
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("EmployeeManagementSystem.Tests")]
